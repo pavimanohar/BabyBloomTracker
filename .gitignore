@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+
+# Buildozer / Android build output
+.buildozer/
+bin/
+dist/
+
+# Logs / crash dumps
+*.log
+crash_log.txt
+crash_dump.txt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+.build_apk_cache/
