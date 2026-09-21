@@ -11,7 +11,7 @@ Exports are deliberately formatted for printing/doctor review:
 import os
 from datetime import date, datetime, timedelta
 
-from db import SUGAR_SLOTS, VITAL_TYPES
+from db import Database, SUGAR_SLOTS, VITAL_TYPES
 
 try:
     from kivy.app import App
@@ -630,12 +630,351 @@ def _report_section(selection, rows):
     return f"{label} — {range_label(start_date, end_date)}", headers, sections[0][1]
 
 
+def _export_sugar_report_pdf(rows, start_date, end_date, filename=None):
+    """Create the branded, doctor-friendly Blood Sugar Log report.
+
+    This is intentionally different from the generic export table.  Each
+    glucose reading gets its own row so the meal/fasting context is preserved:
+    date, reading type, value, reading time, previous meal time, fasting state,
+    and notes are all retained.
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Table,
+        TableStyle,
+        Paragraph,
+        Spacer,
+        Image,
+        KeepTogether,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    if not rows:
+        raise ValueError("No blood sugar readings found for the selected date range.")
+
+    # BabyBloom palette.
+    pink = colors.HexColor("#F2A2BF")
+    pink_dark = colors.HexColor("#C94778")
+    pink_soft = colors.HexColor("#FFF1F6")
+    cream = colors.HexColor("#FFFDFB")
+    purple = colors.HexColor("#6C5A73")
+    purple_dark = colors.HexColor("#21152E")
+    green_soft = colors.HexColor("#E6F5E8")
+    green_text = colors.HexColor("#2E7D46")
+    border = colors.HexColor("#E9CBD8")
+    muted = colors.HexColor("#766B76")
+    white = colors.white
+
+    if filename is None:
+        filename = f"blood_sugar_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    path = os.path.join(get_export_dir(), filename)
+
+    doc = SimpleDocTemplate(
+        path,
+        pagesize=A4,
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=9 * mm,
+        bottomMargin=13 * mm,
+        title="BabyBloom — Blood Sugar Log",
+        author="BabyBloom",
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "bb_sugar_title", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=19, leading=22, textColor=purple_dark, alignment=TA_CENTER,
+        spaceAfter=2,
+    )
+    subtitle_style = ParagraphStyle(
+        "bb_sugar_subtitle", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=9.5, leading=12, textColor=muted, alignment=TA_CENTER,
+    )
+    body = ParagraphStyle(
+        "bb_sugar_body", parent=styles["BodyText"], fontName="Helvetica",
+        fontSize=7.5, leading=9.2, textColor=purple_dark,
+    )
+    body_center = ParagraphStyle(
+        "bb_sugar_center", parent=body, alignment=TA_CENTER,
+    )
+    body_left = ParagraphStyle(
+        "bb_sugar_left", parent=body, alignment=TA_LEFT,
+    )
+    header = ParagraphStyle(
+        "bb_sugar_header", parent=body, fontName="Helvetica-Bold",
+        fontSize=7.2, leading=8.4, textColor=purple_dark, alignment=TA_CENTER,
+    )
+    small = ParagraphStyle(
+        "bb_sugar_small", parent=body, fontSize=7, leading=8.5,
+        textColor=muted,
+    )
+    card_label = ParagraphStyle(
+        "bb_card_label", parent=body, fontSize=8, leading=10,
+        textColor=purple, alignment=TA_CENTER,
+    )
+    card_value = ParagraphStyle(
+        "bb_card_value", parent=body, fontName="Helvetica-Bold",
+        fontSize=14, leading=16, textColor=purple_dark, alignment=TA_CENTER,
+    )
+
+    elements = []
+
+    # Header / branding.
+    if os.path.isfile(LOGO_PATH):
+        try:
+            logo = Image(LOGO_PATH, width=17 * mm, height=17 * mm)
+            logo_table = Table(
+                [[logo, Paragraph(
+                    '<font color="#C94778" size="18"><b>BabyBloom</b></font>'
+                    '<br/><font color="#6C5A73" size="8">Pregnancy Care Tracker</font>',
+                    body_left,
+                )]],
+                colWidths=[20 * mm, 95 * mm],
+            )
+            logo_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(logo_table)
+        except Exception:
+            elements.append(Paragraph("<b>BabyBloom</b>", title_style))
+    else:
+        elements.append(Paragraph("<b>BabyBloom</b>", title_style))
+
+    elements.append(Spacer(1, 2 * mm))
+    elements.append(Paragraph("Blood Sugar Log", title_style))
+    elements.append(Paragraph(
+        "Your Health  <font color='#C94778'>♥</font>  Our Care  "
+        "<font color='#C94778'>♥</font>  A Happier You",
+        subtitle_style,
+    ))
+    elements.append(Spacer(1, 4 * mm))
+
+    # Sort by date and reading time, preserving every individual reading.
+    def _sort_key(r):
+        return (str(r.get("log_date", "")), str(r.get("reading_time", "")), int(r.get("id", 0) or 0))
+
+    rows = sorted(rows, key=_sort_key)
+    numeric = [
+        float(r["value"])
+        for r in rows
+        if isinstance(r.get("value"), (int, float))
+    ]
+    avg = sum(numeric) / len(numeric) if numeric else None
+    lowest = min(numeric) if numeric else None
+    highest = max(numeric) if numeric else None
+    fasting_count = sum(1 for r in rows if bool(r.get("fasting")))
+    non_fasting_count = len(rows) - fasting_count
+
+    def fmt_num(value):
+        if value is None:
+            return "-"
+        return f"{value:g}"
+
+    # Information card.
+    left_info = [
+        [Paragraph("<b>Name</b>", body), Paragraph("Mama", body)],
+        [Paragraph("<b>From</b>", body), Paragraph(date.fromisoformat(start_date).strftime("%d %b %Y"), body)],
+        [Paragraph("<b>To</b>", body), Paragraph(date.fromisoformat(end_date).strftime("%d %b %Y"), body)],
+    ]
+    right_info = [
+        [Paragraph("<b>Total Readings</b>", body), Paragraph(str(len(rows)), body)],
+        [Paragraph("<b>Fasting Readings</b>", body), Paragraph(str(fasting_count), body)],
+        [Paragraph("<b>Non-Fasting Readings</b>", body), Paragraph(str(non_fasting_count), body)],
+    ]
+    info_left = Table(left_info, colWidths=[25 * mm, 45 * mm])
+    info_right = Table(right_info, colWidths=[40 * mm, 30 * mm])
+    for t in (info_left, info_right):
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+        ]))
+    info = Table([[info_left, info_right]], colWidths=[83 * mm, 83 * mm])
+    info.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), pink_soft),
+        ("BOX", (0, 0), (-1, -1), 0.8, pink),
+        ("ROUNDEDCORNERS", [8]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(info)
+    elements.append(Spacer(1, 5 * mm))
+
+    # Detailed reading table.  This is the key change from the old export:
+    # meal type, fasting state, reading time and previous meal time are all
+    # displayed for every reading.
+    table_headers = [
+        "Date", "Reading", "Value<br/>(mg/dL)", "Time",
+        "Prev. Meal<br/>Time", "Fasting", "Notes",
+    ]
+    data = [[Paragraph(h, header) for h in table_headers]]
+
+    for r in rows:
+        value = r.get("value")
+        value_text = fmt_num(value) if isinstance(value, (int, float)) else "-"
+        reading = str(r.get("slot") or "-")
+        reading_time = str(r.get("reading_time") or "-")
+        meal_time = str(r.get("previous_meal_time") or "-")
+        fasting = bool(r.get("fasting"))
+        fasting_text = (
+            '<font color="#2E7D46"><b>Yes</b></font>'
+            if fasting else
+            '<font color="#C94778"><b>No</b></font>'
+        )
+        notes = str(r.get("notes") or "-").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        data.append([
+            Paragraph(str(r.get("log_date") or "-"), body_center),
+            Paragraph(reading, body_left),
+            Paragraph(value_text, body_center),
+            Paragraph(reading_time, body_center),
+            Paragraph(meal_time, body_center),
+            Paragraph(fasting_text, body_center),
+            Paragraph(notes, body_left),
+        ])
+
+    col_widths = [20 * mm, 29 * mm, 17 * mm, 17 * mm, 23 * mm, 18 * mm, 62 * mm]
+    detail = Table(data, colWidths=col_widths, repeatRows=1, hAlign="LEFT")
+    detail_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), pink),
+        ("TEXTCOLOR", (0, 0), (-1, 0), purple_dark),
+        ("GRID", (0, 0), (-1, -1), 0.45, border),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (2, 0), (5, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    for idx in range(1, len(data)):
+        detail_style.append((
+            "BACKGROUND", (0, idx), (-1, idx),
+            white if idx % 2 else colors.HexColor("#FFF7F1"),
+        ))
+        fasting_value = rows[idx - 1].get("fasting")
+        detail_style.append((
+            "BACKGROUND", (5, idx), (5, idx),
+            green_soft if bool(fasting_value) else colors.HexColor("#FDE7EE"),
+        ))
+    detail.setStyle(TableStyle(detail_style))
+    elements.append(detail)
+    elements.append(Spacer(1, 5 * mm))
+
+    # Summary cards.
+    cards = [
+        ("Average", fmt_num(avg), "mg/dL", pink_soft),
+        ("Lowest", fmt_num(lowest), "mg/dL", green_soft),
+        ("Highest", fmt_num(highest), "mg/dL", colors.HexColor("#FDE7EE")),
+        ("Total Readings", str(len(rows)), "readings", colors.HexColor("#EEE7FA")),
+    ]
+    card_tables = []
+    for label, value, unit, bg in cards:
+        card = Table([
+            [Paragraph(label, card_label)],
+            [Paragraph(value, card_value)],
+            [Paragraph(unit, card_label)],
+        ], colWidths=[40 * mm], rowHeights=[7 * mm, 9 * mm, 6 * mm])
+        card.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), bg),
+            ("BOX", (0, 0), (-1, -1), 0.5, border),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        card_tables.append(card)
+
+    summary = Table([card_tables], colWidths=[42 * mm] * 4)
+    summary.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 1),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(Paragraph("<b>Summary</b>", ParagraphStyle(
+        "summary_heading", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=12, leading=14, textColor=purple_dark, spaceAfter=3 * mm,
+    )))
+    elements.append(summary)
+    elements.append(Spacer(1, 5 * mm))
+
+    # Gentle closing section with the BabyBloom hand/baby image.
+    closing_text = Table([
+        [Paragraph(
+            '<font color="#C94778" size="13"><b>Healthy Moms<br/>Build Brighter Tomorrows ♥</b></font>'
+            '<br/><font color="#6C5A73" size="7.5">Keep this report with your medical records for discussion with your healthcare professional.</font>',
+            body_left,
+        ),
+         Image(os.path.join(APP_DIR, "assets", "mom_baby_finger.png"), width=25 * mm, height=25 * mm)
+         if os.path.isfile(os.path.join(APP_DIR, "assets", "mom_baby_finger.png")) else ""]
+    ], colWidths=[130 * mm, 40 * mm])
+    closing_text.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFF8FB")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#F1C9D9")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(closing_text)
+
+    def draw_page(canvas, document):
+        canvas.saveState()
+        width, height = A4
+        # Soft top accent.
+        canvas.setFillColor(colors.HexColor("#FFF4F8"))
+        canvas.rect(0, height - 8 * mm, width, 8 * mm, stroke=0, fill=1)
+        # Footer rule and metadata.
+        canvas.setStrokeColor(colors.HexColor("#E8CAD8"))
+        canvas.setLineWidth(0.5)
+        canvas.line(10 * mm, 9 * mm, width - 10 * mm, 9 * mm)
+        canvas.setFont("Helvetica", 6.8)
+        canvas.setFillColor(muted)
+        canvas.drawString(10 * mm, 5.2 * mm, "BabyBloom  |  Track  ♥  Care  ♥  Grow")
+        canvas.drawRightString(
+            width - 10 * mm, 5.2 * mm,
+            f"Generated: {datetime.now().strftime('%d %b %Y')}  |  Page {doc.page}",
+        )
+        canvas.restoreState()
+
+    doc.build(elements, onFirstPage=draw_page, onLaterPages=draw_page)
+    return path
+
+
+
+
 def export_selected_reports_to_pdf(selections, filename=None, title="BabyBloom Report"):
     """Combine multiple reading/date-range selections into one A4 portrait PDF."""
     if not selections:
         raise ValueError("No report selections were provided.")
 
-    from db import Database
+    # Use the dedicated branded Blood Sugar Log template when the user
+    # exports the Sugar option by itself. Combined reports retain the
+    # existing generic layout so multiple categories can still be merged.
+    if len(selections) == 1 and selections[0].get("category") == "sugar":
+        selection = selections[0]
+        db = Database.instance()
+        rows = _rows_for_report_selection(
+            db, "sugar", selection["start"], selection["end"]
+        )
+        return _export_sugar_report_pdf(
+            rows, selection["start"], selection["end"], filename=filename
+        )
+
     db = Database.instance()
     grouped_sections = []
     for selection in selections:

@@ -115,6 +115,14 @@ class SugarScreen(MDScreen):
             self.current_date = today_str()
         self.refresh()
 
+    @staticmethod
+    def _display_date(value):
+        try:
+            from datetime import date
+            return date.fromisoformat(value).strftime("%d %b %Y")
+        except Exception:
+            return value
+
     def open_date_picker(self):
         picker = MDDatePicker()
         picker.bind(on_save=self._date_selected)
@@ -187,7 +195,11 @@ class SugarScreen(MDScreen):
             if len(parts) == 2 and parts[0] in TIMING_OPTIONS and parts[1] in MEAL_OPTIONS:
                 initial_timing, initial_meal = parts[0], parts[1]
 
-        selected = {"meal": initial_meal, "timing": initial_timing}
+        selected = {
+            "meal": initial_meal,
+            "timing": initial_timing,
+            "date": (row.get("log_date") if row else None) or self.current_date or today_str(),
+        }
 
         meal_btn = self._make_dropdown_button(
             MEAL_OPTIONS, initial_meal, lambda v: selected.__setitem__("meal", v))
@@ -198,6 +210,23 @@ class SugarScreen(MDScreen):
                                   size_hint_y=None, height="48dp")
         selector_row.add_widget(timing_btn)
         selector_row.add_widget(meal_btn)
+
+        date_btn = MDRaisedButton(
+            text=f"Date: {self._display_date(selected['date'])}",
+            size_hint_y=None,
+            height="46dp",
+        )
+
+        def choose_date(*_):
+            picker = MDDatePicker()
+            picker.bind(on_save=lambda _instance, value, _range: set_date(value))
+            picker.open()
+
+        def set_date(value):
+            selected["date"] = value.strftime("%Y-%m-%d")
+            date_btn.text = f"Date: {self._display_date(selected['date'])}"
+
+        date_btn.bind(on_release=choose_date)
 
         value_field = MDTextField(
             hint_text="Sugar value (mg/dL)",
@@ -220,7 +249,8 @@ class SugarScreen(MDScreen):
         )
 
         content = BoxLayout(orientation="vertical", spacing="8dp", size_hint_y=None)
-        content.height = "360dp"
+        content.height = "410dp"
+        content.add_widget(date_btn)
         content.add_widget(selector_row)
         for f in (value_field, time_field, prev_meal_field, notes_field):
             content.add_widget(f)
@@ -235,6 +265,7 @@ class SugarScreen(MDScreen):
             if row:
                 db.update_sugar_reading(
                     row["id"],
+                    log_date=selected["date"],
                     slot=slot,
                     value=value,
                     reading_time=time_field.text.strip(),
@@ -244,7 +275,7 @@ class SugarScreen(MDScreen):
                 )
             else:
                 db.add_sugar_reading(
-                    self.current_date, slot, value,
+                    selected["date"], slot, value,
                     time_field.text.strip(), prev_meal_field.text.strip(),
                     fasting, notes_field.text.strip(),
                 )

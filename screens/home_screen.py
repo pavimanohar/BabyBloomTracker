@@ -6,11 +6,15 @@ from kivy.properties import StringProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.image import Image
 from kivy.uix.textinput import TextInput
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Line, Ellipse
+from kivy.metrics import dp
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton, MDRaisedButton, MDIconButton
 from kivymd.uix.pickers import MDDatePicker
 from kivymd.uix.label import MDLabel
+from kivymd.uix.list import OneLineListItem
 
 from db import Database, today_str
 
@@ -140,6 +144,106 @@ KV = """
                         text_color: app.theme_text
                         size_hint_y: None
                         height: self.texture_size[1]
+
+                MDCard:
+                    orientation: "vertical"
+                    padding: ["16dp", "12dp", "16dp", "12dp"]
+                    spacing: "4dp"
+                    size_hint_y: None
+                    height: "92dp"
+                    radius: [20, 20, 20, 20]
+                    md_bg_color: app.theme_primary_light
+
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: "30dp"
+                        spacing: "8dp"
+
+                        MDIcon:
+                            icon: "chart-line"
+                            theme_text_color: "Custom"
+                            text_color: app.theme_accent
+                            size_hint: None, None
+                            size: "26dp", "26dp"
+
+                        MDLabel:
+                            text: "7-day average"
+                            bold: True
+                            theme_text_color: "Custom"
+                            text_color: app.theme_text
+
+                        MDRaisedButton:
+                            text: root.average_reading_label
+                            size_hint_x: None
+                            width: "145dp"
+                            on_release: root.open_average_selector()
+
+                    MDLabel:
+                        text: root.average_reading_value
+                        font_style: "H6"
+                        bold: True
+                        theme_text_color: "Custom"
+                        text_color: app.theme_text
+                        size_hint_y: None
+                        height: self.texture_size[1]
+
+                MDCard:
+                    orientation: "vertical"
+                    padding: ["14dp", "10dp", "14dp", "10dp"]
+                    spacing: "4dp"
+                    size_hint_y: None
+                    height: "274dp"
+                    radius: [20, 20, 20, 20]
+                    md_bg_color: app.theme_cream
+
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: "34dp"
+                        spacing: "6dp"
+
+                        MDIcon:
+                            icon: "chart-timeline-variant"
+                            theme_text_color: "Custom"
+                            text_color: app.theme_accent
+                            size_hint: None, None
+                            size: "26dp", "26dp"
+
+                        MDLabel:
+                            text: "Reading trend"
+                            bold: True
+                            theme_text_color: "Custom"
+                            text_color: app.theme_text
+
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: "40dp"
+                        spacing: "6dp"
+
+                        MDRaisedButton:
+                            text: root.trend_reading_label
+                            size_hint_x: None
+                            width: "145dp"
+                            on_release: root.open_trend_reading_selector()
+
+                        MDRaisedButton:
+                            text: root.trend_range_label
+                            size_hint_x: None
+                            width: "170dp"
+                            on_release: root.open_trend_range_dialog()
+
+                    ReadingTrendPlot:
+                        id: trend_plot
+                        size_hint_y: None
+                        height: "145dp"
+
+                    MDLabel:
+                        text: root.trend_axis_text
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: app.theme_text
+                        font_style: "Caption"
+                        size_hint_y: None
+                        height: "22dp"
 
                 MDBoxLayout:
                     size_hint_y: None
@@ -276,7 +380,73 @@ KV = """
                     font_style: "Caption"
                     size_hint_y: None
                     height: "24dp"
+
+<ReadingTrendPlot>:
+    size_hint_y: None
+    height: "170dp"
 """
+
+class ReadingTrendPlot(Widget):
+    """Small dependency-free line chart for the Home dashboard."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.labels = []
+        self.values = []
+        self.bind(pos=self._redraw, size=self._redraw)
+
+    def set_data(self, labels, values):
+        self.labels = list(labels)
+        self.values = list(values)
+        self._redraw()
+
+    def _redraw(self, *_args):
+        self.canvas.clear()
+        if not self.values:
+            return
+
+        is_pair = isinstance(self.values[0], (tuple, list))
+        if is_pair:
+            series = [
+                [float(v[0]) for v in self.values],
+                [float(v[1]) for v in self.values],
+            ]
+        else:
+            series = [[float(v) for v in self.values]]
+
+        all_values = [v for values in series for v in values]
+        lo = min(all_values)
+        hi = max(all_values)
+        pad = max((hi - lo) * 0.12, 1.0)
+        lo -= pad
+        hi += pad
+
+        left = self.x + dp(18)
+        right = self.right - dp(10)
+        bottom = self.y + dp(16)
+        top = self.top - dp(14)
+        width = max(1.0, right - left)
+        height = max(1.0, top - bottom)
+
+        with self.canvas:
+            Color(0.78, 0.74, 0.80, 0.55)
+            Line(points=[left, bottom, right, bottom], width=1)
+
+            for series_index, vals in enumerate(series):
+                Color(0.73, 0.35, 0.48, 1) if series_index == 0 else Color(0.25, 0.50, 0.48, 1)
+                if len(vals) == 1:
+                    xs = [left + width / 2.0]
+                else:
+                    xs = [left + width * i / (len(vals) - 1) for i in range(len(vals))]
+                ys = [bottom + (v - lo) / (hi - lo) * height for v in vals]
+                points = []
+                for x, y in zip(xs, ys):
+                    points.extend([x, y])
+                if len(points) >= 4:
+                    Line(points=points, width=dp(2.2))
+                for x, y in zip(xs, ys):
+                    Ellipse(pos=(x - dp(4), y - dp(4)), size=(dp(8), dp(8)))
+
 
 Builder.load_string(KV)
 
@@ -290,6 +460,11 @@ class HomeScreen(MDScreen):
     inspiration_title = StringProperty("A little positive note for you")
     inspiration_text = StringProperty("Every small step counts. You and your little one are taking this journey one day at a time.")
     hero_image_path = StringProperty("")
+    average_reading_label = StringProperty("Fasting Sugar")
+    average_reading_value = StringProperty("No readings in the last 7 days")
+    trend_reading_label = StringProperty("Fasting Sugar")
+    trend_range_label = StringProperty("Last 7 available readings")
+    trend_axis_text = StringProperty("")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -298,6 +473,10 @@ class HomeScreen(MDScreen):
         self._setup_dialog = None
         self._setup_date = today_str()
         self._setup_unit = "weeks"
+        self._average_key = "fasting_sugar"
+        self._trend_key = "fasting_sugar"
+        self._trend_unit = "days"
+        self._trend_amount = 7
 
     def on_pre_enter(self, *args):
         if not self.selected_date:
@@ -417,6 +596,164 @@ class HomeScreen(MDScreen):
             self.inspiration_title = "A little positive note for you"
             self.inspiration_text = "Your journey is getting closer to a wonderful new chapter. Breathe, rest, and take today one gentle step at a time."
 
+    def _reading_options(self):
+        return [
+            ("fasting_sugar", "Fasting Sugar"),
+            ("sugar", "Blood Sugar"),
+            ("bp", "Blood Pressure"),
+            ("o2", "Oxygen (SpO2)"),
+            ("pulse", "Pulse"),
+            ("weight", "Weight"),
+        ]
+
+    def _date_window(self, unit, amount):
+        from datetime import date, timedelta
+        end = date.fromisoformat(today_str())
+        if unit == "days":
+            start = end - timedelta(days=max(1, amount) - 1)
+        elif unit == "weeks":
+            start = end - timedelta(days=max(1, amount) * 7 - 1)
+        else:
+            start = end - timedelta(days=max(1, amount) * 30 - 1)
+        return start, end
+
+    def _values_for_key(self, key, rows_sugar, rows_vitals):
+        if key in ("fasting_sugar", "sugar"):
+            rows = rows_sugar if key == "sugar" else [r for r in rows_sugar if r.get("fasting")]
+            return [(r["log_date"], float(r["value"])) for r in rows if r.get("value") is not None]
+        if key == "bp":
+            return [(r["log_date"], (float(r["value1"]), float(r["value2"])))
+                    for r in rows_vitals if r.get("vital_type") == "BP"
+                    and r.get("value1") is not None and r.get("value2") is not None]
+        mapping = {"o2": "O2", "pulse": "Pulse", "weight": "Weight"}
+        vital_type = mapping.get(key)
+        return [(r["log_date"], float(r["value1"])) for r in rows_vitals
+                if r.get("vital_type") == vital_type and r.get("value1") is not None]
+
+    def _format_average(self, key, values):
+        if not values:
+            return "No readings in the last 7 days"
+        if key == "bp":
+            systolic = sum(v[1][0] for v in values) / len(values)
+            diastolic = sum(v[1][1] for v in values) / len(values)
+            return f"{systolic:.0f} / {diastolic:.0f} mmHg"
+        average = sum(v[1] for v in values) / len(values)
+        units = {"fasting_sugar": "mg/dL", "sugar": "mg/dL", "o2": "%", "pulse": "bpm", "weight": "kg"}
+        return f"{average:.1f} {units.get(key, '')}".strip()
+
+    def _refresh_health_summary(self):
+        db = Database.instance()
+        start, end = self._date_window("days", 7)
+        sugar = db.get_sugar_range(start.isoformat(), end.isoformat())
+        vitals = db.get_vitals_range(start.isoformat(), end.isoformat())
+
+        average_values = self._values_for_key(self._average_key, sugar, vitals)
+        self.average_reading_value = self._format_average(self._average_key, average_values)
+
+        if self._trend_unit == "days" and self._trend_amount == 7:
+            # Default chart: latest seven available readings, ignoring days
+            # with no reading by extending backwards as needed.
+            values = self._values_for_key(self._trend_key, sugar, vitals)
+            if len(values) < 7:
+                from datetime import date, timedelta
+                end_date = date.fromisoformat(today_str())
+                start_date = end_date - timedelta(days=3650)
+                sugar = db.get_sugar_range(start_date.isoformat(), end_date.isoformat())
+                vitals = db.get_vitals_range(start_date.isoformat(), end_date.isoformat())
+                values = self._values_for_key(self._trend_key, sugar, vitals)
+            values = values[-7:]
+            self.trend_range_label = "Last 7 available readings"
+        else:
+            start, end = self._date_window(self._trend_unit, self._trend_amount)
+            sugar = db.get_sugar_range(start.isoformat(), end.isoformat())
+            vitals = db.get_vitals_range(start.isoformat(), end.isoformat())
+            values = self._values_for_key(self._trend_key, sugar, vitals)
+            unit_label = {"days": "days", "weeks": "weeks", "months": "months"}[self._trend_unit]
+            self.trend_range_label = f"{self._trend_amount} {unit_label}"
+
+        labels = [self._short_date(d) for d, _v in values]
+        self.trend_axis_text = "   •   ".join(labels) if labels else "No readings available for this range"
+        plot_values = [v for _d, v in values]
+        self.ids.trend_plot.set_data(labels, plot_values)
+        if self._trend_key == "bp" and labels:
+            self.trend_axis_text += "   (Systolic / Diastolic)"
+
+    def _short_date(self, value):
+        try:
+            from datetime import date
+            return date.fromisoformat(value).strftime("%d %b")
+        except Exception:
+            return value
+
+    def _open_selection_dialog(self, title, options, selected_key, callback):
+        content = BoxLayout(orientation="vertical", spacing="2dp", size_hint_y=None,
+                            height=f"{50 * len(options)}dp")
+        dialog = None
+        for key, label in options:
+            item = OneLineListItem(text=label)
+            item.bind(on_release=lambda _item, k=key: (dialog.dismiss(), callback(k)))
+            content.add_widget(item)
+        dialog = MDDialog(title=title, type="custom", content_cls=content,
+                          buttons=[MDFlatButton(text="CANCEL", on_release=lambda *_: dialog.dismiss())])
+        dialog.open()
+
+    def open_average_selector(self):
+        self._open_selection_dialog("7-day average", self._reading_options(), self._average_key,
+                                    self._set_average_reading)
+
+    def _set_average_reading(self, key):
+        self._average_key = key
+        label = dict(self._reading_options())[key]
+        self.average_reading_label = label
+        self._refresh_health_summary()
+
+    def open_trend_reading_selector(self):
+        self._open_selection_dialog("Reading trend", self._reading_options(), self._trend_key,
+                                    self._set_trend_reading)
+
+    def _set_trend_reading(self, key):
+        self._trend_key = key
+        self.trend_reading_label = dict(self._reading_options())[key]
+        self._refresh_health_summary()
+
+    def open_trend_range_dialog(self):
+        content = BoxLayout(orientation="vertical", spacing="8dp", size_hint_y=None, height="150dp")
+        amount = TextInput(text=str(self._trend_amount), input_filter="int", multiline=False,
+                           hint_text="Number", size_hint_y=None, height="46dp")
+        content.add_widget(MDLabel(text="Number of days, weeks or months", size_hint_y=None, height="28dp"))
+        content.add_widget(amount)
+        row = BoxLayout(spacing="6dp", size_hint_y=None, height="46dp")
+        unit_buttons = {}
+        dialog = None
+        for unit in ("days", "weeks", "months"):
+            button = MDRaisedButton(text=unit.capitalize())
+            unit_buttons[unit] = button
+            button.bind(on_release=lambda _btn, u=unit: self._select_trend_unit(u, unit_buttons))
+            row.add_widget(button)
+        content.add_widget(row)
+        self._select_trend_unit(self._trend_unit, unit_buttons)
+
+        def apply(*_):
+            try:
+                value = int(amount.text)
+            except (TypeError, ValueError):
+                value = 0
+            if value <= 0:
+                return
+            self._trend_amount = value
+            dialog.dismiss()
+            self._refresh_health_summary()
+
+        dialog = MDDialog(title="Trend range", type="custom", content_cls=content,
+                          buttons=[MDFlatButton(text="CANCEL", on_release=lambda *_: dialog.dismiss()),
+                                   MDRaisedButton(text="APPLY", on_release=apply)])
+        dialog.open()
+
+    def _select_trend_unit(self, unit, buttons):
+        self._trend_unit = unit
+        for key, button in buttons.items():
+            button.md_bg_color = (0.85, 0.55, 0.65, 1) if key == unit else (0.78, 0.78, 0.78, 1)
+
     def open_date_picker(self):
         picker = MDDatePicker()
         picker.bind(on_save=self._date_selected)
@@ -476,6 +813,7 @@ class HomeScreen(MDScreen):
         else:
             self.summary_text = "Nothing has been recorded for this day yet.\nUse the buttons below whenever you want to add something."
             self.summary_card_height = "165dp"
+        self._refresh_health_summary()
 
     @staticmethod
     def _display_date(value):

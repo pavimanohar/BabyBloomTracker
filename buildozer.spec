@@ -27,20 +27,18 @@ android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,INTERNET
 # keeps build times down; add armeabi-v7a too if you need older devices.
 android.archs = arm64-v8a
 
-# api 33 (not 34): Android 14+ hard-enforces an "exported/not-exported"
-# flag on every dynamically-registered BroadcastReceiver ONLY for apps
-# targeting API 34+. SDL2's bundled Java HIDAPI (joystick/controller
-# support, initialized automatically even though this app never uses
-# it) hasn't been updated for that requirement upstream in this
-# python-for-android version, and crashes immediately on launch when
-# targeting 34. Targeting 33 keeps that check as a non-fatal warning
-# instead — the app still installs and runs fine on Android 16 / One
-# UI 8.5, since Android is backward compatible with older-targeting
-# apps. (33 is already downloaded locally too, so this needs no new
-# SDK platform fetch.)
+# Was briefly considered as the fix for the RECEIVER_EXPORTED crash
+# (theory: Android 14+'s hard enforcement was gated on this app's own
+# targetSdkVersion). Confirmed wrong: the crash persisted at 33 too, on
+# this Android 16 device — the OS enforces it regardless of what we
+# target here. Staying on 33 for now anyway (already built/cached, no
+# functional downside) while the real fix — patch_hidapi_receiver_flags()
+# in build_apk.py, which patches SDL2's own Java source directly — gets
+# verified in isolation. Bump back to 34 later as a separate, unrelated
+# change once that's confirmed.
 android.api = 33
 android.minapi = 24
-android.ndk = 25b
+android.ndk = 28c
 android.accept_sdk_license = True
 
 android.allow_backup = True

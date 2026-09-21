@@ -34,6 +34,7 @@ import sys
 import time
 import re
 import urllib.request
+from pathlib import Path
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PYTHON = (3, 9)
@@ -59,16 +60,16 @@ def banner(text):
     print("=" * 70)
 
 
-def run(cmd, check=True, capture=False, sudo=False):
+def run(cmd, check=True, capture=False, sudo=False, cwd=None):
     if sudo and os.geteuid() != 0:
         cmd = ["sudo"] + cmd
     print(f"$ {' '.join(cmd)}")
     if capture:
-        result = subprocess.run(cmd, check=check, text=True,
+        result = subprocess.run(cmd, check=check, text=True, cwd=cwd,
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         print(result.stdout)
         return result.stdout
-    return subprocess.run(cmd, check=check)
+    return subprocess.run(cmd, check=check, cwd=cwd)
 
 
 def command_exists(name):
@@ -269,6 +270,73 @@ def patch_hidapi_receiver_flags():
             print(f"Patched {n1 + n2} receiver registration(s) in {path}")
 
 
+
+def patch_sdl2_alooper_pollall():
+    """Patch old SDL2 source for NDK r27/r28+.
+
+    The pinned python-for-android release carries SDL2 source that still
+    calls ALooper_pollAll(). Newer Android NDK headers mark that API
+    obsolete/removed. SDL's upstream fix is the direct replacement with
+    ALooper_pollOnce(). This keeps the p4a branch unchanged.
+    """
+    matches = glob.glob(os.path.join(
+        PROJECT_DIR, ".buildozer", "android", "platform", "build-*",
+        "**", "SDL_androidsensor.c",
+    ), recursive=True)
+
+    if not matches:
+        return
+
+    old = "ALooper_pollAll(0, NULL, &events, (void **)&source)"
+    new = "ALooper_pollOnce(0, NULL, &events, (void **)&source)"
+
+    for path in matches:
+        try:
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+        except OSError:
+            continue
+
+        if new in content or old not in content:
+            continue
+
+        content = content.replace(old, new)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        print(f"Patched SDL2 ALooper_pollAll -> ALooper_pollOnce in {path}")
+
+
+def patch_harfbuzz_cast_warnings():
+    """Suppress NDK r28 Clang cast diagnostics only in HarfBuzz hb-ft.cc."""
+    matches = glob.glob(os.path.join(
+        PROJECT_DIR, ".buildozer", "android", "platform", "build-*",
+        "**", "SDL2_ttf", "external", "harfbuzz", "src", "hb-ft.cc",
+    ), recursive=True)
+    pragma = (
+        "#if defined(__clang__)\n"
+        "#pragma clang diagnostic push\n"
+        "#pragma clang diagnostic ignored \"-Wcast-function-type-strict\"\n"
+        "#endif\n"
+    )
+    end_pragma = (
+        "\n#if defined(__clang__)\n"
+        "#pragma clang diagnostic pop\n"
+        "#endif\n"
+    )
+    for path in matches:
+        try:
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+            if "-Wcast-function-type-strict" in content:
+                continue
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(pragma + content + end_pragma)
+            print(f"Patched HarfBuzz cast diagnostic in {path}")
+        except OSError:
+            continue
+
+
 def remove_broken_reportlab_recipe():
     """Some python-for-android checkouts ship a reportlab recipe that
     fails to build. Deleting the recipe folder from p4a's local clone is
@@ -284,6 +352,56 @@ def remove_broken_reportlab_recipe():
         print("Removing bundled reportlab p4a recipe so pip installs it directly...")
         shutil.rmtree(rl_recipe_dir)
 
+
+def ensure_p4a_checkout():
+    """Ensure the exact p4a branch is cloned before Buildozer starts p4a.
+
+    This is necessary because Buildozer may clone p4a and immediately begin
+    compiling it in the same subprocess, leaving no opportunity for a builder
+    post-clone source patch. The checkout is still controlled by buildozer.spec.
+    """
+    spec_path = os.path.join(PROJECT_DIR, "buildozer.spec")
+    if not os.path.isfile(spec_path):
+        return
+
+    with open(spec_path, encoding="utf-8") as f:
+        spec = f.read()
+
+    branch_match = re.search(
+        r'^\s*p4a\.branch\s*=\s*(\S+)', spec, re.MULTILINE
+    )
+    if not branch_match:
+        return
+    wanted = branch_match.group(1)
+
+    url_match = re.search(
+        r'^\s*p4a\.url\s*=\s*(\S+)', spec, re.MULTILINE
+    )
+    fork_match = re.search(
+        r'^\s*p4a\.fork\s*=\s*(\S+)', spec, re.MULTILINE
+    )
+
+    if url_match:
+        url = url_match.group(1)
+    else:
+        fork = fork_match.group(1) if fork_match else "kivy"
+        url = f"https://github.com/{fork}/python-for-android.git"
+
+    p4a_dir = os.path.join(
+        PROJECT_DIR, ".buildozer", "android", "platform",
+        "python-for-android",
+    )
+    if os.path.isdir(os.path.join(p4a_dir, ".git")):
+        return
+
+    os.makedirs(os.path.dirname(p4a_dir), exist_ok=True)
+    banner(f"Pre-cloning python-for-android at pinned branch '{wanted}'")
+    try:
+        run(["git", "clone", "--branch", wanted, url, p4a_dir])
+        print(f"python-for-android cloned at '{wanted}'.")
+    except subprocess.CalledProcessError:
+        print("WARNING: pre-clone of python-for-android failed; "
+              "Buildozer will attempt its normal checkout.")
 
 def ensure_p4a_branch():
     """Buildozer only clones python-for-android once. If buildozer.spec's
@@ -339,6 +457,207 @@ def ensure_p4a_branch():
               f"  rm -rf {p4a_dir}\n"
               f"(buildozer will re-clone it fresh, at the correct branch, "
               f"on the next run).")
+
+
+def patch_p4a_native_recipes():
+    """Install deterministic source patches into the pinned p4a recipes."""
+    p4a_root = os.path.join(
+        PROJECT_DIR, ".buildozer", "android", "platform",
+        "python-for-android", "pythonforandroid", "recipes",
+    )
+
+    # SDL2_ttf / HarfBuzz: use p4a's native `patches` mechanism.
+    ttf_recipe_dir = os.path.join(p4a_root, "sdl2_ttf")
+    ttf_recipe = os.path.join(ttf_recipe_dir, "__init__.py")
+
+    if os.path.isfile(ttf_recipe):
+        try:
+            patch_dir = os.path.join(ttf_recipe_dir, "patches")
+            os.makedirs(patch_dir, exist_ok=True)
+
+            patch_name = "babybloom_harfbuzz_ndk28.patch"
+            patch_path = os.path.join(patch_dir, patch_name)
+
+            # Insert the Clang diagnostic suppression at the beginning of
+            # hb-ft.cc. A zero-context hunk makes this independent of the
+            # exact HarfBuzz line numbers in SDL2_ttf 2.20.2.
+            patch_text = """--- a/external/harfbuzz/src/hb-ft.cc
++++ b/external/harfbuzz/src/hb-ft.cc
+@@ -0,0 +1,6 @@
++/* BABYBLOOM_NDK28_HARFBUZZ_PATCH */
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wcast-function-type-strict"
++#endif
++
++"""
+            Path(patch_path).write_text(patch_text, encoding="utf-8")
+
+            content = Path(ttf_recipe).read_text(encoding="utf-8")
+
+            # Remove the old dynamically injected HarfBuzz hook, if a
+            # previous failed build left it in the pinned checkout.
+            cleaned = re.sub(
+                r"\n    def prebuild_arch\(self, arch\):.*?"
+                r"(?=\nrecipe = LibSDL2TTF\(\))",
+                "\n",
+                content,
+                flags=re.DOTALL,
+            )
+            cleaned = re.sub(r"^import os\n", "", cleaned, count=1)
+
+            # Add p4a's supported recipe-level patch declaration.
+            if "patches/babybloom_harfbuzz_ndk28.patch" not in cleaned:
+                target = "    dir_name = 'SDL2_ttf'\n"
+                if target not in cleaned:
+                    raise RuntimeError("Unexpected sdl2_ttf recipe layout")
+                cleaned = cleaned.replace(
+                    target,
+                    target
+                    + "    patches = ['patches/babybloom_harfbuzz_ndk28.patch']\n",
+                    1,
+                )
+
+            Path(ttf_recipe).write_text(cleaned, encoding="utf-8")
+            print("Patched/verified p4a SDL2_ttf HarfBuzz recipe:", ttf_recipe)
+            print("Installed HarfBuzz patch:", patch_path)
+
+            # If p4a has already built SDL2_ttf, its .patched marker can
+            # cause the new recipe patch to be skipped. Remove only the
+            # cached SDL2_ttf build directories; SDK/NDK downloads remain.
+            cached_ttf = glob.glob(os.path.join(
+                PROJECT_DIR, ".buildozer", "android", "platform",
+                "build-*", "**", "sdl2_ttf"
+            ), recursive=True)
+            for cached in cached_ttf:
+                if os.path.isdir(cached):
+                    print("Removing stale SDL2_ttf build cache:", cached)
+                    shutil.rmtree(cached, ignore_errors=True)
+
+        except OSError as e:
+            print(f"WARNING: could not patch SDL2_ttf recipe: {e}")
+
+    # SDL2 / ALooper fix remains unchanged.
+    sdl_recipe = os.path.join(
+        p4a_root, "sdl2", "__init__.py"
+    )
+    if os.path.isfile(sdl_recipe):
+        try:
+            content = Path(sdl_recipe).read_text(encoding="utf-8")
+
+            if not re.search(r"^\s*import\s+os\s*$", content, re.MULTILINE):
+                content = "import os\n" + content
+
+            if "BABYBLOOM_NDK28_SDL_LOOPER_PATCH" not in content:
+                hook = r'''
+    def prebuild_arch(self, arch):
+        super().prebuild_arch(arch)
+        path = os.path.join(
+            self.get_build_dir(arch.arch),
+            "src", "sensor", "android", "SDL_androidsensor.c",
+        )
+        try:
+            with open(path, encoding="utf-8") as f:
+                source = f.read()
+        except OSError:
+            return
+        old = "ALooper_pollAll(0, NULL, &events, (void **)&source)"
+        new = "ALooper_pollOnce(0, NULL, &events, (void **)&source)"
+        if old not in source or new in source:
+            return
+        source = source.replace(old, new)
+        marker = "/* BABYBLOOM_NDK28_SDL_LOOPER_PATCH */\n"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(marker + source)
+
+'''
+                target = "\nrecipe = LibSDL2Recipe()"
+                if target not in content:
+                    raise RuntimeError("Unexpected sdl2 recipe layout")
+                content = content.replace(target, "\n" + hook + target, 1)
+
+            Path(sdl_recipe).write_text(content, encoding="utf-8")
+            print(f"Patched/verified p4a SDL2 recipe: {sdl_recipe}")
+        except OSError as e:
+            print(f"WARNING: could not patch SDL2 recipe: {e}")
+
+    # Kivy 2.3.0 / NDK r28 Clang fix: the generated cgl_gl.c contains
+    # one OpenGL function-pointer assignment whose parameter qualifiers
+    # are stricter under newer Clang versions. Patch the generated C
+    # source immediately before Kivy's native build starts.
+    kivy_recipe = os.path.join(
+        p4a_root, "kivy", "__init__.py"
+    )
+    if os.path.isfile(kivy_recipe):
+        try:
+            content = Path(kivy_recipe).read_text(encoding="utf-8")
+
+            # The generated Kivy hook uses os.walk/os.path. Ensure the
+            # p4a Kivy recipe imports os before the hook is installed.
+            if not re.search(r"^import os\s*$", content, flags=re.MULTILINE):
+                content = "import os\n" + content
+
+            # Remove any previous BabyBloom-generated Kivy hook.
+            hook_start = content.find("\n    def prebuild_arch(self, arch):")
+            hook_end = content.find("\nrecipe = KivyRecipe()")
+
+            if hook_start != -1 and hook_end != -1:
+                existing_hook = content[hook_start:hook_end]
+                if "BABYBLOOM_NDK28_KIVY_CGL_GL_PATCH" in existing_hook:
+                    content = content[:hook_start] + "\n" + content[hook_end:]
+
+            hook = r'''
+    def prebuild_arch(self, arch):
+        super().prebuild_arch(arch)
+
+        build_dir = self.get_build_dir(arch.arch)
+        marker = "/* BABYBLOOM_NDK28_KIVY_CGL_GL_PATCH */\n"
+        pragma = (
+            "/* BABYBLOOM_NDK28_KIVY_CGL_GL_PATCH */\n"
+            "#if defined(__clang__)\n"
+            "#pragma clang diagnostic push\n"
+            "#pragma clang diagnostic ignored \"-Wincompatible-function-pointer-types\"\n"
+            "#endif\n"
+        )
+
+        for root, _dirs, files in os.walk(build_dir):
+            if "cgl_gl.c" not in files:
+                continue
+
+            path = os.path.join(root, "cgl_gl.c")
+            try:
+                with open(path, encoding="utf-8") as f:
+                    source = f.read()
+            except OSError:
+                continue
+
+            if marker in source:
+                continue
+
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(pragma + source)
+
+            print("Patched Kivy cgl_gl.c for NDK r28:", path)
+
+'''
+            target = "\nrecipe = KivyRecipe()"
+            if target not in content:
+                raise RuntimeError("Unexpected Kivy recipe layout")
+
+            content = content.replace(target, "\n" + hook + target, 1)
+            Path(kivy_recipe).write_text(content, encoding="utf-8")
+
+            try:
+                compile(content, kivy_recipe, "exec")
+            except SyntaxError as e:
+                raise RuntimeError(
+                    f"Generated Kivy recipe is invalid Python: {e}"
+                ) from e
+
+            print(f"Patched/verified p4a Kivy recipe: {kivy_recipe}")
+        except OSError as e:
+            print(f"WARNING: could not patch Kivy recipe: {e}")
+
 
 
 def precache_freetype(timeout=25, attempts=2, local_file=None):
@@ -669,7 +988,206 @@ def run_buildozer_streamed(target):
     return proc.returncode, "".join(lines)
 
 
-def build_apk(release=False, freetype_file=None):
+
+def find_android_build_tool(name):
+    """Locate an Android SDK build-tool executable, preferring the newest version."""
+    candidates = []
+
+    for root_var in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
+        root = os.environ.get(root_var)
+        if root:
+            candidates.extend(glob.glob(os.path.join(root, "build-tools", "*", name)))
+
+    # Buildozer may keep the SDK under the project directory or under the
+    # user's shared ~/.buildozer directory. Check both locations.
+    sdk_roots = [
+        os.path.join(PROJECT_DIR, ".buildozer", "android", "platform", "android-sdk"),
+        os.path.join(os.path.expanduser("~"), ".buildozer", "android", "platform", "android-sdk"),
+    ]
+    for sdk_root in sdk_roots:
+        candidates.extend(glob.glob(os.path.join(
+            sdk_root, "build-tools", "*", name
+        )))
+
+    # Remove duplicates and retain executable files.
+    candidates = [p for p in dict.fromkeys(candidates) if os.path.isfile(p) and os.access(p, os.X_OK)]
+    if candidates:
+        candidates.sort(key=lambda p: p.split(os.sep)[-2], reverse=True)
+        return candidates[0]
+
+    return shutil.which(name)
+
+
+def sign_release_apk(apk_path):
+    """16 KB-align and sign an APK with the standard Android debug key.
+
+    The AAB->APK Gradle path currently produces an unsigned release APK.
+    Android will reject that APK with INSTALL_PARSE_FAILED_NO_CERTIFICATES.
+    Keep signing local and deterministic by using the standard debug keystore.
+    """
+    banner("Signing release APK")
+
+    zipalign = find_android_build_tool("zipalign")
+    apksigner = find_android_build_tool("apksigner")
+    if not zipalign:
+        raise RuntimeError("zipalign was not found in the Android SDK/build-tools.")
+    if not apksigner:
+        raise RuntimeError("apksigner was not found in the Android SDK/build-tools.")
+
+    android_dir = os.path.expanduser("~/.android")
+    os.makedirs(android_dir, exist_ok=True)
+    keystore = os.path.join(android_dir, "debug.keystore")
+
+    if not os.path.isfile(keystore):
+        keytool = shutil.which("keytool")
+        if not keytool:
+            java_home = os.environ.get("JAVA_HOME")
+            if java_home:
+                candidate = os.path.join(java_home, "bin", "keytool")
+                if os.path.isfile(candidate):
+                    keytool = candidate
+        if not keytool:
+            raise RuntimeError("keytool was not found; cannot create the debug keystore.")
+
+        print(f"Creating Android debug keystore: {keystore}")
+        run([
+            keytool, "-genkeypair",
+            "-keystore", keystore,
+            "-storepass", "android",
+            "-keypass", "android",
+            "-alias", "androiddebugkey",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000",
+            "-dname", "CN=Android Debug,O=Android,C=US",
+        ], check=True)
+
+    apk_path = os.path.abspath(apk_path)
+    apk_dir = os.path.dirname(apk_path)
+    stem = os.path.splitext(os.path.basename(apk_path))[0]
+    aligned_path = os.path.join(apk_dir, stem + "-aligned.apk")
+
+    # zipalign must happen before signing. Use -P 16 so the final APK is
+    # packaged appropriately for 16 KB page-size devices.
+    if os.path.exists(aligned_path):
+        os.remove(aligned_path)
+    run([zipalign, "-P", "16", "-f", "4", apk_path, aligned_path], check=True)
+
+    # Sign the aligned APK. The final artifact replaces the unsigned APK.
+    run([
+        apksigner, "sign",
+        "--ks", keystore,
+        "--ks-pass", "pass:android",
+        "--key-pass", "pass:android",
+        "--ks-key-alias", "androiddebugkey",
+        "--out", apk_path,
+        aligned_path,
+    ], check=True)
+
+    if os.path.exists(aligned_path):
+        os.remove(aligned_path)
+
+    # Verify the signature before returning the APK.
+    run([apksigner, "verify", "--verbose", apk_path], check=True)
+    print(f"Signed APK: {apk_path}")
+    return apk_path
+
+
+def verify_16kb_apk_alignment(apk_path):
+    """Verify the final APK is packaged for 16 KB page-size devices.
+
+    Android recommends zipalign -P 16 for APK packaging. NDK r28c builds
+    native ELF shared libraries with 16 KB alignment by default, but this
+    check also scans the APK's .so files with llvm-readelf when available.
+    """
+    banner("Verifying 16 KB page-size alignment")
+    zipalign = find_android_build_tool("zipalign")
+    if zipalign:
+        result = subprocess.run(
+            [zipalign, "-c", "-P", "16", "-v", "4", apk_path],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        )
+        print(result.stdout)
+        if result.returncode != 0:
+            raise RuntimeError("APK zip alignment check failed for 16 KB page size.")
+    else:
+        print("WARNING: zipalign not found; skipping APK zip-alignment check.")
+
+    ndk_root = os.path.join(PROJECT_DIR, ".buildozer", "android", "platform")
+    readelf_candidates = glob.glob(
+        os.path.join(ndk_root, "android-ndk-r28c", "toolchains", "llvm",
+                     "prebuilt", "linux-x86_64", "bin", "llvm-readelf")
+    )
+    readelf = readelf_candidates[0] if readelf_candidates else shutil.which("llvm-readelf")
+    if not readelf:
+        print("WARNING: llvm-readelf not found; ELF LOAD alignment was not checked automatically.")
+        return
+
+    import zipfile
+    failures = []
+    with zipfile.ZipFile(apk_path) as zf:
+        for name in zf.namelist():
+            if not (name.startswith("lib/") and name.endswith(".so")):
+                continue
+            data = zf.read(name)
+            temp_path = os.path.join(PROJECT_DIR, ".build_apk_cache", os.path.basename(name))
+            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            with open(temp_path, "wb") as fh:
+                fh.write(data)
+            out = subprocess.run([readelf, "-Wl", temp_path],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 text=True, check=False).stdout
+            loads = []
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 8 and parts[0] == "LOAD":
+                    try:
+                        loads.append(int(parts[-1], 16))
+                    except ValueError:
+                        pass
+            if loads and any(align % 0x4000 for align in loads):
+                failures.append((name, loads))
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+    if failures:
+        for name, loads in failures:
+            print(f"UNALIGNED: {name} LOAD alignments={loads}")
+        raise RuntimeError("One or more native libraries are not ELF 16 KB aligned.")
+    print("16 KB ELF alignment check passed for packaged native libraries.")
+
+
+def _ensure_16kb_clean_build_state():
+    """Remove stale native build artifacts when the configured NDK changes.
+
+    Buildozer/p4a caches recipe outputs, so merely changing the NDK version
+    is not enough: old SDL2/Python/FreeType/OpenSSL .so files can otherwise
+    survive into the next APK. Only the native build/output caches are
+    removed; the downloaded SDK/NDK and source project remain intact.
+    """
+    marker = os.path.join(PROJECT_DIR, ".build_apk_cache", "ndk-version")
+    current = "28c"
+    previous = None
+    if os.path.isfile(marker):
+        try:
+            previous = open(marker).read().strip()
+        except OSError:
+            pass
+    if previous == current:
+        return
+    platform_dir = os.path.join(PROJECT_DIR, ".buildozer", "android", "platform")
+    for name in ("build-arm64-v8a", "build_other_builds", "build-other", "dists"):
+        path = os.path.join(platform_dir, name)
+        if os.path.exists(path):
+            print(f"Removing stale native build cache: {path}")
+            shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(os.path.dirname(marker), exist_ok=True)
+    with open(marker, "w") as fh:
+        fh.write(current)
+
+def build_apk(release=True, freetype_file=None):
     banner("7/7  Building the APK with Buildozer (first run downloads the "
            "Android SDK/NDK — can take a long time)")
     target = "release" if release else "debug"
@@ -678,17 +1196,26 @@ def build_apk(release=False, freetype_file=None):
     # Only has an effect once p4a has been cloned into .buildozer — a
     # first-ever run won't have it yet, which is fine, it gets applied
     # on the retry after p4a is cloned during that same first run.
+    ensure_p4a_checkout()
     ensure_p4a_branch()
+    patch_p4a_native_recipes()
     remove_broken_reportlab_recipe()
     patch_hidapi_receiver_flags()
+    patch_sdl2_alooper_pollall()
+    patch_harfbuzz_cast_warnings()
+    _ensure_16kb_clean_build_state()
 
     transient_retries_left = MAX_TRANSIENT_RETRIES
     setuptools_patch_tried = False
 
     while True:
+        ensure_p4a_checkout()
         ensure_p4a_branch()
+        patch_p4a_native_recipes()
         remove_broken_reportlab_recipe()
         patch_hidapi_receiver_flags()
+        patch_sdl2_alooper_pollall()
+        patch_harfbuzz_cast_warnings()
         precache_freetype(local_file=freetype_file)
         returncode, output = run_buildozer_streamed(target)
         if returncode == 0:
@@ -725,13 +1252,91 @@ def build_apk(release=False, freetype_file=None):
         raise subprocess.CalledProcessError(returncode, "buildozer", output=output)
 
     bin_dir = os.path.join(PROJECT_DIR, "bin")
-    apks = [f for f in os.listdir(bin_dir) if f.endswith(".apk")] if os.path.isdir(bin_dir) else []
+    os.makedirs(bin_dir, exist_ok=True)
+
+    # Some p4a/Gradle combinations finish successfully with an Android App
+    # Bundle (.aab) instead of an installable APK.  Do not treat that as a
+    # failed build: ask the generated Gradle project to assemble the APK.
+    apks = [f for f in os.listdir(bin_dir) if f.endswith(".apk")]
+    # Ignore stale APKs from earlier failed packaging/signing attempts.
+    # The presence of an APK in bin/ must not prevent us from processing the
+    # freshly generated AAB.
+    aabs = [f for f in os.listdir(bin_dir) if f.endswith(".aab")]
+    apks = [f for f in os.listdir(bin_dir) if f.endswith(".apk")]
+
+    if aabs:
+        if aabs:
+            aabs.sort(key=lambda f: os.path.getmtime(os.path.join(bin_dir, f)), reverse=True)
+            aab_path = os.path.join(bin_dir, aabs[0])
+            print(f"Buildozer produced AAB: {aab_path}")
+
+            dist_matches = glob.glob(os.path.join(
+                PROJECT_DIR, ".buildozer", "android", "platform",
+                "build-*", "dists", "*"
+            ))
+            dist_matches = [p for p in dist_matches if os.path.isdir(p)]
+            if not dist_matches:
+                print("ERROR: AAB was produced, but the generated Gradle project was not found.")
+                return None
+
+            dist_matches.sort(key=os.path.getmtime, reverse=True)
+            dist_dir = dist_matches[0]
+            gradlew = os.path.join(dist_dir, "gradlew")
+            if not os.path.isfile(gradlew):
+                print(f"ERROR: Gradle wrapper not found in {dist_dir}")
+                return None
+
+            print("AAB detected. Assembling the installable release APK from the same Gradle project...")
+            print(f"Gradle project directory: {dist_dir}")
+            run([gradlew, "assembleRelease"], check=True, cwd=dist_dir)
+
+            gradle_apks = glob.glob(os.path.join(
+                dist_dir, "build", "outputs", "apk", "release", "*.apk"
+            ))
+            if not gradle_apks:
+                # Some Android Gradle Plugin versions put the APK one level
+                # deeper or use a different release output directory.
+                gradle_apks = glob.glob(os.path.join(
+                    dist_dir, "build", "outputs", "apk", "**", "*.apk"
+                ), recursive=True)
+
+            if not gradle_apks:
+                print("ERROR: Gradle assembleRelease completed but no APK was found.")
+                return None
+
+            gradle_apks.sort(key=os.path.getmtime, reverse=True)
+            generated_apk = gradle_apks[0]
+            apk_name = os.path.basename(generated_apk)
+            # Keep the final filename stable and remove any explicit Gradle
+            # "unsigned" suffix from the installable artifact.
+            apk_name = re.sub(r"-unsigned(?=\.apk$)", "", apk_name)
+            apk_path = os.path.join(bin_dir, apk_name)
+            shutil.copy2(generated_apk, apk_path)
+            print(f"Converted/generated APK: {apk_path}")
+
+            # Gradle's release APK is unsigned in this configuration.
+            # Align first, then sign, so adb can install the final artifact.
+            sign_release_apk(apk_path)
+            apks = [os.path.basename(apk_path)]
+
+    # Always process the newest APK in bin/. This is important when an
+    # unsigned APK from a previous run is still present: it must never be
+    # returned as the final artifact.
+    apks = [f for f in os.listdir(bin_dir) if f.endswith(".apk")]
     if not apks:
-        print("ERROR: build finished but no .apk found in bin/.")
+        print("ERROR: build finished but no APK was produced in bin/.")
         return None
+
     apks.sort(key=lambda f: os.path.getmtime(os.path.join(bin_dir, f)), reverse=True)
     apk_path = os.path.join(bin_dir, apks[0])
+
+    # A final APK must always be signed. Do not depend on the filename
+    # containing '-unsigned' because Gradle/p4a may emit different names.
+    print(f"Signing final APK artifact: {apk_path}")
+    sign_release_apk(apk_path)
+
     print(f"Built: {apk_path}")
+    verify_16kb_apk_alignment(apk_path)
     return apk_path
 
 
@@ -774,7 +1379,10 @@ def main():
     parser.add_argument("--pair-code", metavar="CODE")
     parser.add_argument("--connect", metavar="IP:PORT")
     parser.add_argument("--serial", metavar="SERIAL")
-    parser.add_argument("--release", action="store_true")
+    parser.add_argument("--release", action="store_true", dest="release", default=True,
+                         help="Build a non-debuggable release APK (default).")
+    parser.add_argument("--debug", action="store_false", dest="release",
+                         help="Build a debuggable APK for development/testing.")
     parser.add_argument("--freetype-file", metavar="PATH",
                          help="Path to an already-downloaded freetype tarball "
                               "(freetype-X.Y.Z.tar.gz) to use instead of "
