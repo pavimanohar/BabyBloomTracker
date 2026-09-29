@@ -1,0 +1,214 @@
+file,class,function,line,arguments,branches,exceptions,test_category,priority,happy_path,boundary,invalid_input,exception_path,branch_cases,integration_required,scenario_required,stress_required,status
+db.py,,get_db_path,49,,3,1,database,critical,yes,yes,review,yes,yes,review,review,review,planned
+db.py,,_rows_to_dicts,357,cursor,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,,today_str,362,,0,0,database,normal,yes,yes,review,not_applicable,not_applicable,review,review,review,planned
+db.py,,now_hhmm,366,,0,0,database,normal,yes,yes,review,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,__init__,93,self,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,instance,100,cls,1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,_create_tables,105,self,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,add_sugar_reading,180,"self, log_date, slot, value, reading_time, previous_meal_time, fasting, notes",1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,update_sugar_reading,191,"self, entry_id, **fields",1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,delete_sugar_reading,199,"self, entry_id",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_sugar_for_date,203,"self, log_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_sugar_range,209,"self, start_date, end_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_all_sugar,217,self,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,add_medication,223,"self, log_date, name, dosage, scheduled_time, notes",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,set_medication_taken,231,"self, med_id, taken",1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,delete_medication,237,"self, med_id",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_medications_for_date,241,"self, log_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,add_event,250,"self, event_date, title, event_type, notes",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,delete_event,258,"self, event_id",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_events_for_date,262,"self, event_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_events_for_month,269,"self, year, month",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,add_vital_reading,279,"self, log_date, vital_type, value1, value2, reading_time, notes",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,update_vital_reading,287,"self, entry_id, **fields",1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,delete_vital_reading,295,"self, entry_id",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_vitals_for_date,299,"self, log_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_vitals_range,305,"self, start_date, end_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_all_vitals,313,self,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,add_consultation_note,319,"self, log_date, notes",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,delete_consultation_note,326,"self, note_id",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_consultation_notes_for_date,330,"self, log_date",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_all_consultation_notes,337,self,0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+db.py,Database,get_setting,343,"self, key, default",1,0,database,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+db.py,Database,set_setting,348,"self, key, value",0,0,database,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+main.py,NavButton,__init__,83,"self, name, icon, label, on_tap, **kwargs",0,0,application,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+main.py,BabyBloomApp,build,105,self,1,0,application,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+main.py,BabyBloomApp,go_to,124,"self, screen_name",0,0,application,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,DayCell,__init__,162,"self, day_num, on_tap, is_today, has_events, **kwargs",3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,on_pre_enter,179,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,change_month,186,"self, delta",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,render_month,196,self,4,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,select_day,224,"self, day_num",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,refresh_all,228,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,_summary_line,232,"self, text, secondary",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,_refresh_summary,255,"self, db",19,0,ui_logic,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,_refresh_after_dialog,322,"self, *_args",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,open_add_sugar,325,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,open_add_vitals,331,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,open_add_medication,337,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,open_add_consultation_note,343,self,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,open_add_event,364,"self, _",4,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,confirm_delete,390,"self, event",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,CalendarScreen,confirm_delete_note,403,"self, note",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,,save,348,*_,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,,save,373,*_,3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/calendar_screen.py,,do_delete,391,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/calendar_screen.py,,do_delete,404,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/events_screen.py,EventsScreen,on_pre_enter,36,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/events_screen.py,EventsScreen,refresh,41,self,3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/events_screen.py,EventsScreen,open_add_event,60,self,3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/events_screen.py,EventsScreen,delete_event,86,"self, event",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/events_screen.py,,save,68,*_,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/events_screen.py,,do,87,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,__init__,203,"self, **kwargs",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,on_pre_enter,210,"self, *args",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,open_reading_menu,215,"self, caller",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_select_reading,249,"self, key, label",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,_dismiss_reading_menu,254,self,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,open_date_picker,259,"self, target",3,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_date_selected,270,"self, _picker, value, _range",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,add_report,278,self,6,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,remove_selection,312,"self, index",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,clear_selection,317,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,refresh_selection_list,321,self,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,generate_pdf,343,self,2,2,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_share_or_notify,364,"self, path",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_view_or_notify,368,"self, path",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_confirm_delete_file,372,"self, filename, full_path",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,refresh_generated_list,394,self,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,refresh_list,402,self,3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_add_pdf_action_row,415,"self, target, filename",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,ExportScreen,_display_date,431,value,1,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/export_screen.py,ExportScreen,_notify,437,"self, message",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/export_screen.py,,do_delete,373,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,ReadingTrendPlot,__init__,392,"self, **kwargs",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,ReadingTrendPlot,set_data,398,"self, labels, values",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,ReadingTrendPlot,_redraw,403,"self, *_args",8,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,__init__,469,"self, **kwargs",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,on_pre_enter,481,"self, *args",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_open_pregnancy_setup,490,self,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_select_setup_unit,527,"self, unit, buttons",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_open_setup_date_picker,532,"self, button",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_setup_date_selected,537,"self, value, button",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_save_pregnancy_setup,541,"self, raw_value, _date_button",4,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_refresh_pregnancy_journey,560,self,4,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_set_inspiration,584,"self, total_days",3,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_reading_options,599,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_date_window,609,"self, unit, amount",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_values_for_key,620,"self, key, rows_sugar, rows_vitals",5,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_format_average,633,"self, key, values",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_refresh_health_summary,644,self,6,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_short_date,681,"self, value",1,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_open_selection_dialog,688,"self, title, options, selected_key, callback",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,open_average_selector,700,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_set_average_reading,704,"self, key",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,open_trend_reading_selector,710,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_set_trend_reading,714,"self, key",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,open_trend_range_dialog,719,self,3,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_select_trend_unit,752,"self, unit, buttons",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,open_date_picker,757,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_date_selected,762,"self, _instance, value, _date_range",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,refresh,766,self,17,0,ui_logic,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_display_date,819,value,1,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_target_screen,826,"self, name",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,open_quick_add,829,self,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_prepare_screen,847,"self, name",2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/home_screen.py,HomeScreen,_quick_add_sugar,855,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_quick_add_vitals,859,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_quick_add_medication,863,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_quick_add_event,867,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,HomeScreen,_quick_add_note,871,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/home_screen.py,,apply,736,*_,2,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,on_pre_enter,52,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,open_date_picker,57,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,_date_selected,62,"self, instance, value, date_range",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,refresh,66,self,8,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,toggle_taken,100,"self, med",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/medication_screen.py,MedicationScreen,open_entry_dialog,105,"self, med",13,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/medication_screen.py,,save,120,*_,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/medication_screen.py,,delete,138,*_,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/notes_screen.py,NotesScreen,on_pre_enter,36,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/notes_screen.py,NotesScreen,refresh,41,self,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/notes_screen.py,NotesScreen,open_add_note,59,self,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/notes_screen.py,NotesScreen,delete_note,80,"self, note",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/notes_screen.py,,save,64,*_,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/notes_screen.py,,do,81,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarEntryCard,__init__,101,"self, on_tap, **kwargs",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarEntryCard,dispatch_tap,105,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,on_pre_enter,113,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,_display_date,119,value,1,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,open_date_picker,126,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,_date_selected,131,"self, instance, value, date_range",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,refresh,135,self,7,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,_make_dropdown_button,161,"self, options, initial, on_select",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,SugarScreen,open_entry_dialog,187,"self, row",21,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/sugar_screen.py,,open_menu,166,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,,choose_date,220,*_,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,,set_date,225,value,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/sugar_screen.py,,save,258,*_,4,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/sugar_screen.py,,delete,285,*_,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/sugar_screen.py,,choose,177,opt,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,VitalEntryCard,__init__,96,"self, on_tap, **kwargs",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,VitalEntryCard,dispatch_tap,100,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,on_pre_enter,108,"self, *args",1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,open_date_picker,113,self,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,_date_selected,118,"self, instance, value, date_range",0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,refresh,122,self,5,0,ui_logic,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,open_type_chooser,148,self,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/vitals_screen.py,VitalsScreen,open_entry_dialog,173,"self, vital_type, row",17,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/vitals_screen.py,,pick,154,vtype,0,0,ui_logic,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+screens/vitals_screen.py,,parse_float,209,field,2,1,ui_logic,critical,yes,yes,yes,yes,yes,review,review,review,planned
+screens/vitals_screen.py,,save,215,*_,2,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+screens/vitals_screen.py,,delete,232,*_,1,0,ui_logic,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+theme.py,,hex_to_rgba,23,"hex_color, alpha",0,0,utility,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+utils/export_screen.py,ExportScreen,on_pre_enter,91,"self, *args",0,0,other,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+utils/export_screen.py,ExportScreen,do_export,94,"self, fmt",6,1,other,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_screen.py,ExportScreen,_share_or_notify,127,"self, path",1,1,other,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_screen.py,ExportScreen,_notify,134,"self, message",0,0,other,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+utils/export_screen.py,ExportScreen,refresh_list,142,self,3,0,other,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,get_export_dir,26,,2,0,export,medium,yes,yes,review,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_write_media_store_copy,35,"local_path, mime_type",10,6,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,save_to_public_downloads,100,"local_path, mime_type",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,share_exported_file,107,"local_path, mime_type",5,3,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,open_exported_file,159,"local_path, mime_type",4,2,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,delete_export,186,local_path,2,1,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,date_range_dates,196,"start, end",2,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,normalize_ranges,207,ranges,2,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,range_label,219,"start, end",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_rows_by_date,225,"rows, key",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_slot_map,232,rows,1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_format_sugar_values,239,rows,3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,format_vital_value,248,r,3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_vital_values,257,rows,2,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_generic_excel,267,"headers, grouped_sections, sheet_title, filename_prefix, col_widths, filename",8,1,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,_pdf_branding,335,"elements, styles, subtitle",3,1,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,_generic_pdf,356,"headers, grouped_sections, title, filename_prefix, filename",3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,build_daily_sugar_sections,401,"rows, ranges",2,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,build_daily_vitals_sections,415,"rows, ranges",3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,build_daily_generic_sections,429,"rows, ranges, date_key, columns",6,0,export,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_sugar_to_excel,448,"rows, ranges, filename",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_sugar_to_pdf,454,"rows, ranges, filename, title",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_vitals_to_excel,460,"rows, ranges, filename",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_vitals_to_pdf,466,"rows, ranges, filename, title",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_calendar_to_excel,472,"events, ranges, filename",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_calendar_to_pdf,479,"events, ranges, filename, title",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_consultation_notes_to_excel,486,"rows, ranges, filename",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_consultation_notes_to_pdf,492,"rows, ranges, filename, title",1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,build_combined_sections,499,"selected_rows, ranges",25,0,export,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_rows_for_report_selection,562,"db, category, start_date, end_date",5,0,export,high,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_report_section,589,"selection, rows",16,0,export,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_export_sugar_report_pdf,633,"rows, start_date, end_date, filename",23,1,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,export_selected_reports_to_pdf,960,"selections, filename, title",9,1,export,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/export_utils.py,,export_combined_to_excel,1035,"selected_rows, ranges, filename",3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_combined_to_pdf,1049,"selected_rows, ranges, filename, title",3,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,export_medications_to_excel,1061,"rows, ranges, filename",2,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,_sort_key,761,r,1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,fmt_num,776,value,1,0,export,medium,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/export_utils.py,,draw_page,935,"canvas, document",0,0,export,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned
+utils/time_input.py,,make_time_mask_filter,15,field,16,0,input_validation,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/time_input.py,,bind_time_field,56,field,2,1,input_validation,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/time_input.py,,now_12h,82,,0,0,input_validation,normal,yes,yes,review,not_applicable,not_applicable,review,review,review,planned
+utils/time_input.py,,filt,21,"substring, from_undo",16,0,input_validation,critical,yes,yes,yes,not_applicable,yes,review,review,review,planned
+utils/time_input.py,,open_picker,62,"instance, is_focused",2,1,input_validation,critical,yes,yes,yes,yes,yes,review,review,review,planned
+utils/time_input.py,,on_save,73,"picker_instance, time_obj",0,0,input_validation,normal,yes,yes,yes,not_applicable,not_applicable,review,review,review,planned

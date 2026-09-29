@@ -29,3 +29,9 @@ Thumbs.db
 *.tmp
 *.bak
 .build_apk_cache/
+
+# Test and coverage artifacts
+.coverage
+coverage_context.txt
+htmlcov/
+.pytest_cache/

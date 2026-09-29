@@ -437,12 +437,12 @@ def build_daily_generic_sections(rows, ranges, date_key="event_date", columns=No
                 section_rows.append([d] + ["-" for _ in columns])
             else:
                 values = []
-                for key in columns:
+                for label, key in columns:
                     vals = [str(r.get(key, "") or "-") for r in day_rows]
                     values.append(" / ".join(vals) if vals else "-")
                 section_rows.append([d] + values)
         sections.append((range_label(start, end), section_rows))
-    return ["Date"] + [label for _, label in columns], sections
+    return ["Date"] + [label for label, _ in columns], sections
 
 
 def export_sugar_to_excel(rows, ranges=None, filename=None):

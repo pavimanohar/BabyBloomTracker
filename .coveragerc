@@ -1,0 +1,4 @@
+[run]
+omit =
+    build_apk.py
+    tests/*
