@@ -1,5 +1,5 @@
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
@@ -682,3 +682,117 @@ def test_open_entry_dialog_new_has_no_delete_button(running_mdapp):
         isinstance(b, MDFlatButton) and b.text == "DELETE"
         for b in buttons
     )
+
+
+def test_open_type_chooser_cancel_dismisses_dialog(running_mdapp):
+    import screens.vitals_screen as mod
+
+    screen = mod.VitalsScreen()
+
+    class FakeDialog:
+        def __init__(self):
+            self.dismissed = False
+            self.opened = False
+
+        def open(self):
+            self.opened = True
+
+        def dismiss(self):
+            self.dismissed = True
+
+    dialog = FakeDialog()
+
+    with patch.object(mod, "MDDialog", return_value=dialog) as mock_dialog:
+        screen.open_type_chooser()
+
+    assert dialog.opened is True
+
+    buttons = mock_dialog.call_args.kwargs["buttons"]
+    cancel_button = next(b for b in buttons if b.text == "CANCEL")
+    cancel_button.dispatch("on_release")
+
+    assert dialog.dismissed is True
+
+
+def test_open_entry_dialog_new_cancel_dismisses_dialog(running_mdapp):
+    import screens.vitals_screen as mod
+
+    screen = mod.VitalsScreen()
+
+    class FakeDialog:
+        def __init__(self):
+            self.dismissed = False
+            self.opened = False
+
+        def open(self):
+            self.opened = True
+
+        def dismiss(self):
+            self.dismissed = True
+
+    dialog = FakeDialog()
+
+    with patch.object(mod.Database, "instance", return_value=Mock()),          patch.object(mod, "MDDialog", return_value=dialog) as mock_dialog,          patch.object(mod, "bind_time_field"):
+
+        screen.open_entry_dialog("Weight")
+
+    assert dialog.opened is True
+
+    buttons = mock_dialog.call_args.kwargs["buttons"]
+    cancel_button = next(b for b in buttons if b.text == "CANCEL")
+    cancel_button.dispatch("on_release")
+
+    assert dialog.dismissed is True
+
+
+def test_open_entry_dialog_new_delete_closure_row_false_branch(running_mdapp):
+    import sys
+    import screens.vitals_screen as mod
+
+    screen = mod.VitalsScreen()
+    db = Mock()
+    dialog = Mock()
+    captured_delete = None
+
+    def trace(frame, event, arg):
+        nonlocal captured_delete
+
+        if event == "return" and frame.f_code.co_name == "open_entry_dialog":
+            for value in frame.f_locals.values():
+                if callable(value) and getattr(value, "__name__", None) == "delete":
+                    captured_delete = value
+                    break
+
+        return trace
+
+    previous_trace = sys.gettrace()
+
+    with patch.object(mod.Database, "instance", return_value=db), \
+         patch.object(mod, "MDDialog", return_value=dialog), \
+         patch.object(mod, "bind_time_field"):
+
+        sys.settrace(trace)
+        try:
+            screen.open_entry_dialog("Weight")
+        finally:
+            sys.settrace(previous_trace)
+
+    assert captured_delete is not None
+
+    refresh_mock = Mock()
+    original_refresh = screen.refresh
+    screen.refresh = refresh_mock
+
+    try:
+        dialog.dismiss.reset_mock()
+
+        # row=None: database deletion is skipped, but the dialog
+        # is still dismissed and the screen is refreshed.
+        captured_delete()
+
+        db.delete_vital_reading.assert_not_called()
+        dialog.dismiss.assert_called_once()
+        refresh_mock.assert_called_once()
+    finally:
+        screen.refresh = original_refresh
+

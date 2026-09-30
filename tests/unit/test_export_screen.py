@@ -458,3 +458,136 @@ def test_refresh_list_with_empty_export_directory(running_mdapp, monkeypatch):
 
     assert len(target.widgets) == 1
     assert target.widgets[0].text == "No generated PDFs yet."
+
+
+def test_export_reading_menu_item_and_cancel_callbacks(
+    running_mdapp, monkeypatch
+):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+
+    screen = ExportScreen()
+    screen._select_reading = Mock()
+    screen.open_reading_menu(Mock())
+
+    dialog = captured[-1]
+    item = next(
+        child for child in dialog.content_cls.children
+        if getattr(child, "text", None)
+    )
+    item.dispatch("on_release")
+    screen._select_reading.assert_called_once()
+
+    # Re-open so the dialog is still available for the cancel callback.
+    screen.open_reading_menu(Mock())
+    dialog = captured[-1]
+    dialog.buttons[0].dispatch("on_release")
+
+
+def test_export_selection_remove_button_callback(running_mdapp):
+    screen = ExportScreen()
+    screen.report_selections = [
+        {"label": "Blood Sugar", "start": "2026-09-20", "end": "2026-09-21"}
+    ]
+    screen.refresh_selection_list()
+
+    row = next(
+        child for child in screen.ids.selection_list.children
+        if any(getattr(grandchild, "icon", None) == "close-circle-outline"
+               for grandchild in child.children)
+    )
+    remove_button = next(
+        grandchild for grandchild in row.children
+        if getattr(grandchild, "icon", None) == "close-circle-outline"
+    )
+    remove_button.dispatch("on_release")
+    assert screen.report_selections == []
+
+
+@pytest.mark.parametrize(
+    "method,helper",
+    [
+        ("_share_or_notify", "share_exported_file"),
+        ("_view_or_notify", "open_exported_file"),
+    ],
+)
+def test_export_share_and_view_success_branches(
+    running_mdapp, monkeypatch, method, helper
+):
+    screen = ExportScreen()
+    screen._notify = Mock()
+    monkeypatch.setattr(mod, helper, lambda *args: True)
+
+    getattr(screen, method)("x.pdf")
+
+    screen._notify.assert_not_called()
+
+
+def test_export_confirm_delete_cancel_callback(running_mdapp, monkeypatch):
+    class FakeDialog:
+        instances = []
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.dismissed = False
+            FakeDialog.instances.append(self)
+
+        def open(self):
+            pass
+
+        def dismiss(self):
+            self.dismissed = True
+
+    monkeypatch.setattr(mod, "MDDialog", FakeDialog)
+    screen = ExportScreen()
+    screen._confirm_delete_file("x.pdf", "/tmp/x.pdf")
+
+    dialog = FakeDialog.instances[-1]
+    dialog.kwargs["buttons"][0].dispatch("on_release")
+    assert dialog.dismissed is True
+
+
+def test_export_pdf_action_row_callbacks(running_mdapp, monkeypatch):
+    class Target:
+        def __init__(self):
+            self.widgets = []
+
+        def add_widget(self, widget):
+            self.widgets.append(widget)
+
+    target = Target()
+    screen = ExportScreen()
+    screen._share_or_notify = Mock()
+    screen._view_or_notify = Mock()
+    screen._confirm_delete_file = Mock()
+    monkeypatch.setattr(mod, "get_export_dir", lambda: "/tmp/exports")
+
+    screen._add_pdf_action_row(target, "report.pdf")
+
+    row = target.widgets[0]
+    buttons = {
+        child.icon: child
+        for child in row.children
+        if hasattr(child, "icon")
+    }
+
+    buttons["share-variant"].dispatch("on_release")
+    buttons["eye-outline"].dispatch("on_release")
+    buttons["trash-can-outline"].dispatch("on_release")
+
+    screen._share_or_notify.assert_called_once_with("/tmp/exports/report.pdf")
+    screen._view_or_notify.assert_called_once_with("/tmp/exports/report.pdf")
+    screen._confirm_delete_file.assert_called_once_with(
+        "report.pdf", "/tmp/exports/report.pdf"
+    )
+
+
+def test_export_notify_ok_callback(running_mdapp, monkeypatch):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+
+    screen = ExportScreen()
+    screen._notify("hello")
+
+    dialog = captured[-1]
+    dialog.buttons[0].dispatch("on_release")

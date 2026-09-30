@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime
 from unittest.mock import Mock
 import utils.time_input as mod
@@ -200,3 +201,45 @@ def test_time_mask_ignores_character_at_auto_space_position():
     filt = mod.make_time_mask_filter(field)
 
     assert filt(" ") == ""
+
+
+@pytest.mark.parametrize(
+    "field_text,char,expected",
+    [
+        ("1", "9", ""),
+        ("5", "x", ""),
+        ("12:3", "9", "9 "),
+        ("12:3", "x", ""),
+        ("12:30 ", "x", ""),
+    ],
+)
+def test_time_mask_all_remaining_rejection_branches(
+    field_text, char, expected
+):
+    field = Mock()
+    field.text = field_text
+    filt = mod.make_time_mask_filter(field)
+    assert filt(char) == expected
+
+
+
+
+
+def test_time_mask_rejects_invalid_meridiem_character():
+    class Field:
+        text = "12:34 "
+
+    filt = mod.make_time_mask_filter(Field())
+
+    # First character is rejected at position 6.
+    # The second character forces the loop to execute again.
+    assert filt("xx") == ""
+
+
+def test_time_mask_meridiem_then_extra_character_continues_loop():
+    class Field:
+        text = "12:34 "
+
+    filt = mod.make_time_mask_filter(Field())
+
+    assert filt("px") == "PM"

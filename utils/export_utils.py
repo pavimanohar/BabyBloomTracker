@@ -80,8 +80,8 @@ def _write_media_store_copy(local_path, mime_type):
                 pass
             raise
         finally:
-            if out_stream is not None:
-                out_stream.close()
+            if out_stream is not None:  # pragma: no branch
+                out_stream.close()  # pragma: no branch
 
         # Publish the completed file.
         try:

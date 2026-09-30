@@ -590,3 +590,85 @@ def test_dropdown_choose_updates_callback_and_button(
     assert button.text == "Dinner"
     assert selected == ["Dinner"]
     assert menu.dismissed is True
+
+
+def test_open_entry_dialog_edit_invalid_slot_uses_defaults(
+    monkeypatch, running_mdapp
+):
+    patch_dialog_widgets(monkeypatch)
+
+    db = Mock()
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+
+    screen = SugarScreen()
+    screen.current_date = "2026-09-23"
+
+    row = {
+        "id": 1,
+        "log_date": "2026-09-23",
+        "slot": "Invalid Slot",
+        "value": 100,
+        "reading_time": "",
+        "previous_meal_time": "",
+        "fasting": 0,
+        "notes": "",
+    }
+
+    screen.open_entry_dialog(row)
+    dialog = FakeDialog.instances[-1]
+
+    timing = _find_widget_by_text(dialog.kwargs["content_cls"], mod.TIMING_OPTIONS)
+    assert timing is not None
+    meal = _find_widget_by_text(dialog.kwargs["content_cls"], mod.MEAL_OPTIONS)
+    assert meal is not None
+
+    assert timing.text == mod.TIMING_OPTIONS[0]
+    assert meal.text == mod.MEAL_OPTIONS[0]
+
+
+def test_open_entry_dialog_new_delete_closure_false_branch(
+    monkeypatch, running_mdapp
+):
+    patch_dialog_widgets(monkeypatch)
+    db = Mock()
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+
+    screen = SugarScreen()
+    screen.current_date = "2026-09-23"
+    screen.refresh = Mock()
+
+    captured = []
+
+    def tracer(frame, event, arg):
+        if event == "return" and frame.f_code.co_name == "open_entry_dialog":
+            captured.append(frame.f_locals.get("delete"))
+        return tracer
+
+    import sys
+    old_trace = sys.gettrace()
+    sys.settrace(tracer)
+    try:
+        screen.open_entry_dialog()
+    finally:
+        sys.settrace(old_trace)
+
+    delete = captured[-1]
+    assert delete is not None
+    delete()
+
+    db.delete_sugar_reading.assert_not_called()
+    screen.refresh.assert_called_once()
+
+def _find_widget_by_text(widget, texts):
+    """Recursively find a Kivy widget whose text matches one of the values."""
+    if getattr(widget, "text", None) in texts:
+        return widget
+    for child in getattr(widget, "children", []):
+        result = _find_widget_by_text(child, texts)
+        if result is not None:
+            return result
+    return None

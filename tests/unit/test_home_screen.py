@@ -1303,3 +1303,288 @@ def test_on_pre_enter_without_reference_schedules_setup(
     assert screen.selected_date == "2026-09-23"
     assert scheduled[0][1] == 0.2
 
+
+
+def test_home_on_pre_enter_existing_date_and_reference_does_not_schedule(
+    running_mdapp, monkeypatch
+):
+    screen = HomeScreen()
+    screen.selected_date = "2026-09-23"
+    screen._refresh_pregnancy_journey = Mock()
+    screen.refresh = Mock()
+
+    db = Mock()
+    db.get_setting.return_value = "2026-09-01"
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+    schedule = Mock()
+    monkeypatch.setattr(mod.Clock, "schedule_once", schedule)
+
+    screen.on_pre_enter()
+
+    schedule.assert_not_called()
+
+
+def test_home_on_pre_enter_scheduled_callback_executes(
+    running_mdapp, monkeypatch
+):
+    screen = HomeScreen()
+    screen.selected_date = ""
+    screen._refresh_pregnancy_journey = Mock()
+    screen.refresh = Mock()
+    screen._open_pregnancy_setup = Mock()
+
+    db = Mock()
+    db.get_setting.return_value = None
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+
+    scheduled = []
+    monkeypatch.setattr(
+        mod.Clock, "schedule_once",
+        lambda callback, delay: scheduled.append((callback, delay)),
+    )
+    monkeypatch.setattr(mod, "today_str", lambda: "2026-09-23")
+
+    screen.on_pre_enter()
+    scheduled[0][0](0)
+
+    screen._open_pregnancy_setup.assert_called_once()
+
+
+def test_home_pregnancy_setup_dialog_callbacks(
+    running_mdapp, monkeypatch
+):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+    monkeypatch.setattr(mod.MDDatePicker, "open", lambda self: None)
+
+    screen = HomeScreen()
+    screen._open_pregnancy_setup()
+    dialog = captured[-1]
+
+    # Exercise the per-unit lambda bindings.
+    unit_button = _find_widget_by_text(dialog.content_cls, "Days")
+    assert unit_button is not None
+    unit_button.dispatch("on_release")
+    assert screen._setup_unit == "days"
+
+    # Exercise the date-button lambda and the date-picker on_save lambda.
+    date_button = _find_widget_by_text_prefix(dialog.content_cls, "Reference date:")
+    assert date_button is not None
+    screen._open_setup_date_picker = Mock()
+    # The original binding was created before the instance method was replaced,
+    # so invoke the bound callback captured by the button.
+    date_button.dispatch("on_release")
+    screen._open_setup_date_picker.assert_called_once()
+
+    # Exercise the SAVE lambda with a valid value and a real dialog.
+    db = Mock()
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+    monkeypatch.setattr(mod, "today_str", lambda: "2026-09-23")
+    screen._refresh_pregnancy_journey = Mock()
+    screen._setup_date = "2026-09-20"
+    dialog.buttons[0].dispatch("on_release")
+
+    assert db.set_setting.call_count == 3
+
+
+def test_home_setup_date_picker_on_save_callback(running_mdapp, monkeypatch):
+    picker_holder = []
+
+    class FakePicker:
+        def bind(self, **kwargs):
+            self.callback = kwargs["on_save"]
+
+        def open(self):
+            picker_holder.append(self)
+
+    monkeypatch.setattr(mod, "MDDatePicker", FakePicker)
+    screen = HomeScreen()
+    button = type("Button", (), {"text": ""})()
+
+    screen._open_setup_date_picker(button)
+    picker = picker_holder[0]
+
+    class Value:
+        def strftime(self, fmt):
+            assert fmt == "%Y-%m-%d"
+            return "2026-09-22"
+
+    picker.callback(None, Value(), None)
+    assert screen._setup_date == "2026-09-22"
+    assert "22 Sep 2026" in button.text
+
+
+def test_home_save_setup_without_dialog_covers_false_branch(
+    running_mdapp, monkeypatch
+):
+    screen = HomeScreen()
+    screen._setup_date = "2026-09-20"
+    screen._setup_unit = "weeks"
+    screen._setup_dialog = None
+
+    db = Mock()
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+    monkeypatch.setattr(mod, "today_str", lambda: "2026-09-23")
+    screen._refresh_pregnancy_journey = Mock()
+
+    screen._save_pregnancy_setup("5", None)
+
+    db.set_setting.assert_called()
+
+
+def test_home_health_summary_uses_existing_seven_readings(
+    running_mdapp, monkeypatch
+):
+    screen = HomeScreen()
+    screen._average_key = "sugar"
+    screen._trend_key = "sugar"
+    screen._trend_unit = "days"
+    screen._trend_amount = 7
+
+    rows = [
+        {"log_date": f"2026-09-{day:02d}", "value": 100 + day, "fasting": 0}
+        for day in range(17, 24)
+    ]
+    db = Mock()
+    db.get_sugar_range.return_value = rows
+    db.get_vitals_range.return_value = []
+    monkeypatch.setattr(
+        mod.Database, "instance", classmethod(lambda cls: db)
+    )
+    monkeypatch.setattr(mod, "today_str", lambda: "2026-09-23")
+
+    screen._refresh_health_summary()
+
+    assert screen.trend_range_label == "Last 7 available readings"
+    # No fallback query is needed when seven readings are already available.
+    assert db.get_sugar_range.call_count == 1
+
+
+def test_home_selection_dialog_item_and_cancel_callbacks(
+    running_mdapp, monkeypatch
+):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+
+    callback = Mock()
+    screen = HomeScreen()
+    screen._open_selection_dialog(
+        "Select", [("a", "A"), ("b", "B")], "a", callback
+    )
+    dialog = captured[-1]
+
+    item = next(
+        child for child in dialog.content_cls.children
+        if getattr(child, "text", None) == "A"
+    )
+    item.dispatch("on_release")
+    callback.assert_called_once_with("a")
+
+    # Re-open to execute the CANCEL lambda.
+    screen._open_selection_dialog(
+        "Select", [("a", "A")], "a", callback
+    )
+    captured[-1].buttons[0].dispatch("on_release")
+
+
+def test_home_trend_unit_and_cancel_callbacks(running_mdapp, monkeypatch):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+
+    screen = HomeScreen()
+    screen.open_trend_range_dialog()
+    dialog = captured[-1]
+
+    unit_button = _find_widget_by_text(dialog.content_cls, "Days")
+    assert unit_button is not None
+    unit_button.dispatch("on_release")
+    assert screen._trend_unit == "days"
+
+    dialog.buttons[0].dispatch("on_release")
+
+
+def test_home_quick_add_item_and_cancel_callbacks(running_mdapp, monkeypatch):
+    captured = []
+    monkeypatch.setattr(mod.MDDialog, "open", lambda self: captured.append(self))
+
+    screen = HomeScreen()
+    screen._quick_add_sugar = Mock()
+    screen.open_quick_add()
+    dialog = captured[-1]
+
+    button = _find_widget_containing_text(dialog.content_cls, "Sugar")
+    assert button is not None
+    button.dispatch("on_release")
+    screen._quick_add_sugar.assert_called_once()
+
+    screen.open_quick_add()
+    captured[-1].buttons[0].dispatch("on_release")
+
+
+def test_home_prepare_screen_without_selected_date_attribute(
+    running_mdapp, monkeypatch
+):
+    screen = HomeScreen()
+    screen.selected_date = "2026-09-23"
+
+    target = SimpleNamespace(current_date="")
+    monkeypatch.setattr(screen, "_target_screen", lambda name: target)
+
+    result = screen._prepare_screen("dummy")
+
+    assert result is target
+    assert target.current_date == "2026-09-23"
+    assert not hasattr(target, "selected_date")
+
+
+def _find_widget_by_text(widget, text):
+    """Recursively find a Kivy widget whose text matches."""
+    if getattr(widget, "text", None) == text:
+        return widget
+
+    for child in getattr(widget, "children", []):
+        result = _find_widget_by_text(child, text)
+        if result is not None:
+            return result
+
+    return None
+
+def _find_widget_by_text(widget, text):
+    """Recursively find a Kivy widget whose text matches."""
+    if getattr(widget, "text", None) == text:
+        return widget
+    for child in getattr(widget, "children", []):
+        result = _find_widget_by_text(child, text)
+        if result is not None:
+            return result
+    return None
+
+def _find_widget_containing_text(widget, text):
+    """Recursively find a widget whose text contains the requested text."""
+    value = getattr(widget, "text", None)
+    if isinstance(value, str) and text in value:
+        return widget
+    for child in getattr(widget, "children", []):
+        result = _find_widget_containing_text(child, text)
+        if result is not None:
+            return result
+    return None
+
+def _find_widget_by_text_prefix(widget, prefix):
+    """Recursively find a Kivy widget whose text starts with prefix."""
+    text = getattr(widget, "text", None)
+    if isinstance(text, str) and text.startswith(prefix):
+        return widget
+    for child in getattr(widget, "children", []):
+        result = _find_widget_by_text_prefix(child, prefix)
+        if result is not None:
+            return result
+    return None

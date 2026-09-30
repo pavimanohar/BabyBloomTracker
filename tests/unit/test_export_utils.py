@@ -1685,3 +1685,119 @@ def test_export_utils_handles_missing_kivy_app_import(monkeypatch):
             sys.modules[module_name] = original_module
         else:
             importlib.import_module(module_name)
+
+
+def test_write_media_store_copy_android_close_failure_is_caught(
+    monkeypatch, tmp_path
+):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"x")
+
+    class CloseFailStream(FakeOutputStream):
+        def close(self):
+            raise RuntimeError("close failed")
+
+    stream = CloseFailStream()
+    resolver = FakeResolver(output_stream=stream)
+    install_fake_android(monkeypatch, resolver)
+
+    assert mod._write_media_store_copy(
+        str(source), "application/pdf"
+    ) is None
+
+
+def test_generic_excel_missing_logo_branch(monkeypatch, tmp_path):
+    monkeypatch.setattr(mod.os.path, "isfile", lambda path: False)
+    monkeypatch.setattr(mod, "get_export_dir", lambda: str(tmp_path))
+
+    rows = [{"event_date": "2026-09-23", "title": "Scan"}]
+    path = mod._generic_excel(
+        ["Date", "Events"],
+        [("2026-09-23", [["2026-09-23", "Scan"]])],
+        "Events",
+        "events",
+        [15, 20],
+        "events.xlsx",
+    )
+
+    assert Path(path).is_file()
+
+
+def test_pdf_branding_without_subtitle_branch(running_mdapp, monkeypatch):
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    elements = []
+    monkeypatch.setattr(mod.os.path, "isfile", lambda path: False)
+
+    mod._pdf_branding(elements, getSampleStyleSheet(), None)
+
+    assert len(elements) == 2
+
+
+def test_write_media_store_copy_android_open_stream_exception_leaves_stream_none(
+    monkeypatch, tmp_path
+):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"x")
+
+    class OpenStreamFailResolver(FakeResolver):
+        def openOutputStream(self, uri):
+            raise RuntimeError("open stream failed")
+
+    resolver = OpenStreamFailResolver()
+    install_fake_android(monkeypatch, resolver)
+
+    assert mod._write_media_store_copy(
+        str(source),
+        "application/pdf",
+    ) is None
+
+    assert resolver.deleted == [
+        ("content://babybloom/1", None, None)
+    ]
+
+
+def test_write_media_store_copy_android_close_exception(
+    monkeypatch, tmp_path
+):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"x")
+
+    class CloseFailOutputStream(FakeOutputStream):
+        def close(self):
+            self.closed = True
+            raise RuntimeError("close failed")
+
+    stream = CloseFailOutputStream()
+    resolver = FakeResolver(output_stream=stream)
+    install_fake_android(monkeypatch, resolver)
+
+    assert mod._write_media_store_copy(
+        str(source),
+        "application/pdf",
+    ) is None
+
+    assert stream.closed is True
+
+
+def test_write_media_store_copy_android_null_output_stream(
+    monkeypatch, tmp_path
+):
+    source = tmp_path / "report.pdf"
+    source.write_bytes(b"x")
+
+    class NullOutputStreamResolver(FakeResolver):
+        def openOutputStream(self, uri):
+            return None
+
+    resolver = NullOutputStreamResolver()
+    install_fake_android(monkeypatch, resolver)
+
+    assert mod._write_media_store_copy(
+        str(source),
+        "application/pdf",
+    ) is None
+
+    assert resolver.deleted == [
+        ("content://babybloom/1", None, None)
+    ]

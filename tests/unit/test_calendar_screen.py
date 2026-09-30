@@ -970,3 +970,76 @@ def test_render_month_without_events(
     assert len(screen.ids.day_grid.children) > 0
 
     screen.refresh_all.assert_called_once()
+
+
+def test_refresh_summary_vital_without_second_value_covers_value2_false(running_mdapp):
+    screen = CalendarScreen()
+    screen.selected_date = "2026-09-23"
+    screen.ids.summary_list.clear_widgets()
+
+    db = Mock()
+    db.get_events_for_date.return_value = []
+    db.get_sugar_for_date.return_value = []
+    db.get_vitals_for_date.return_value = [
+        {
+            "vital_type": "Weight",
+            "value1": 65,
+            "value2": None,
+            "reading_time": "",
+        }
+    ]
+    db.get_medications_for_date.return_value = []
+    db.get_consultation_notes_for_date.return_value = []
+
+    screen._refresh_summary(db)
+
+    texts = [
+        child.text
+        for row in screen.ids.summary_list.children
+        for child in row.children
+        if hasattr(child, "text")
+    ]
+    assert any("Weight: 65 kg" in text for text in texts)
+
+
+@pytest.mark.parametrize(
+    "method,args",
+    [
+        ("open_add_consultation_note", ()),
+        ("open_add_event", (None,)),
+    ],
+)
+def test_calendar_dialog_cancel_callbacks_are_executable(
+    running_mdapp, monkeypatch, method, args
+):
+    FakeDialog.created = []
+    monkeypatch.setattr(mod, "MDDialog", FakeDialog)
+
+    screen = CalendarScreen()
+    screen.selected_date = "2026-09-23"
+    getattr(screen, method)(*args)
+
+    dialog = FakeDialog.created[-1]
+    dialog.kwargs["buttons"][0].dispatch("on_release")
+    assert dialog.dismiss_called is True
+
+
+@pytest.mark.parametrize(
+    "method,event",
+    [
+        ("confirm_delete", {"id": 1, "title": "Scan"}),
+        ("confirm_delete_note", {"id": 2, "notes": "Feeling good"}),
+    ],
+)
+def test_calendar_delete_dialog_cancel_callbacks_are_executable(
+    running_mdapp, monkeypatch, method, event
+):
+    FakeDialog.created = []
+    monkeypatch.setattr(mod, "MDDialog", FakeDialog)
+
+    screen = CalendarScreen()
+    getattr(screen, method)(event)
+
+    dialog = FakeDialog.created[-1]
+    dialog.kwargs["buttons"][0].dispatch("on_release")
+    assert dialog.dismiss_called is True

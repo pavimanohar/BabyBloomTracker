@@ -1,3 +1,4 @@
+from unittest.mock import Mock
 import pytest
 
 import screens.medication_screen as mod
@@ -495,3 +496,33 @@ def test_open_medication_dialog_edit_cancel_preserves_medication(
     ).fetchone()
     assert tuple(row) == ("Keep Me", "1", "12:00", "Keep")
     assert dialog.dismissed is True
+
+
+def test_open_medication_dialog_new_delete_closure_false_branch(
+    monkeypatch, running_mdapp
+):
+    _patch_dialog_widgets(monkeypatch)
+    screen = MedicationScreen()
+    screen.current_date = "2026-09-23"
+    screen.refresh = Mock()
+
+    captured = []
+
+    def tracer(frame, event, arg):
+        if event == "return" and frame.f_code.co_name == "open_entry_dialog":
+            captured.append(frame.f_locals.get("delete"))
+        return tracer
+
+    import sys
+    old_trace = sys.gettrace()
+    sys.settrace(tracer)
+    try:
+        screen.open_entry_dialog()
+    finally:
+        sys.settrace(old_trace)
+
+    delete = captured[-1]
+    assert delete is not None
+    delete()
+
+    screen.refresh.assert_called_once()
