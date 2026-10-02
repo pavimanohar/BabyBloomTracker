@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
-
+from datetime import date
 import pytest
 
 import screens.calendar_screen as mod
@@ -43,11 +43,24 @@ def test_daycell_non_today_style(running_mdapp):
 
     assert tuple(cell.bg_color) == (1, 1, 1, 0.6)
 
-
 def test_calendar_on_pre_enter_initializes_date(monkeypatch, running_mdapp):
     screen = CalendarScreen()
     screen.year = 0
     screen.month = 0
+
+    monkeypatch.setattr(
+        mod,
+        "date",
+        type(
+            "FixedDate",
+            (),
+            {
+                "today": staticmethod(
+                    lambda: date(2026, 9, 23)
+                )
+            },
+        ),
+    )
 
     monkeypatch.setattr(
         mod,

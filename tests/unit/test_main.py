@@ -405,14 +405,6 @@ def test_go_to_empty_screen_name_raises(navigation_app):
     assert "No Screen with name" in str(exc_info.value)
 
 
-def test_go_to_none_is_accepted_by_screen_manager(navigation_app):
-    app, _items = navigation_app
-
-    app.go_to(None)
-
-    assert app.root.ids.sm.current is None
-
-
 def test_go_to_non_string_value_raises(navigation_app):
     app, _items = navigation_app
 

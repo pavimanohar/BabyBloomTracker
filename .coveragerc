@@ -1,4 +1,20 @@
 [run]
+branch = True
+source =
+    db.py
+    main.py
+    theme.py
+    screens
+    utils
+
 omit =
     build_apk.py
+    collect_coverage_context.py
     tests/*
+    */tests/*
+    *.kv
+
+[report]
+exclude_lines =
+    pragma: no cover
+    pragma: no branch
